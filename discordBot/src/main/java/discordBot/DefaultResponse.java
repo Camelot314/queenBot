@@ -1,5 +1,6 @@
 package discordBot;
 
+
 import org.javacord.api.DiscordApi;
 import org.javacord.api.event.message.MessageCreateEvent;
 
@@ -19,7 +20,16 @@ public class DefaultResponse implements Response {
 	
 	
 	
-	
+	/**
+	 * Constructor. 
+	 * Initializes the static help message as the very first response
+	 * that is put into the constructor. It also initializes a static
+	 * random object that all the responses will use. 
+	 * @param command
+	 * @param response
+	 * @param contains
+	 * @param lambda
+	 */
 	public DefaultResponse (String command, String response, boolean contains, Executable lambda) {
 		this.command = command;
 		this.response = response;
@@ -55,7 +65,6 @@ public class DefaultResponse implements Response {
 	 */
 	public DefaultResponse (String command, String response, String response2,
 			boolean contains, int odd) {
-		
 		this (command, response, contains, null);
 
 	}
@@ -106,11 +115,7 @@ public class DefaultResponse implements Response {
 	 */
 	@Override
 	public String exec (DiscordApi api, MessageCreateEvent event) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
-			return isCommand(event.getMessageContent(), null);
-		}
+		return exec(api, event, null);
 	}
 	
 	/**
@@ -123,11 +128,15 @@ public class DefaultResponse implements Response {
 	 */
 	@Override
 	public String exec (DiscordApi api, MessageCreateEvent event, String additonal) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
-			return isCommand(event.getMessageContent(), additonal);
+		String input = event.getMessageContent().toLowerCase();
+		if ((contains && input.contains(command)) || input.equals(command)) {
+			if (lambda != null) {
+				return lambda.exec(api, event);
+			} else {
+				return isCommand(event.getMessageContent(), additonal);
+			}
 		}
+		return null;
 	}
 	
 	
@@ -182,6 +191,8 @@ public class DefaultResponse implements Response {
 	 */
 	private String isCommand(String input, String additional) {
 		String toReturn = null;
+		
+		additional = additional == null ? "" : additional;
 		input = input.toLowerCase();
 		if (input != null) {
 			if (command.equals(helpCommand)) {

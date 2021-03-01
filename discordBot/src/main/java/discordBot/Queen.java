@@ -33,12 +33,12 @@ import java.util.concurrent.TimeUnit;
  * QueenBot will end the program if the authorized terminator sends the kill 
  * code which is /@botname !terminate.
  * 
- * @author Jaraad Kamal
+ * @author kjara
  *
  */
 public class Queen {
-	private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord UserID of the person you want to have control */ null;
-	private static final String TOKEN = /* Bot token provided by discord */ null;
+    private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord User id of authorized terminator */ "";
+    private static final String TOKEN = /* Bot Token that discord gives you */ "";
 	private static final String SAVED_DATA_FILE = "savedCustoms/savedData";
 	private static final String HELP_COMMAND = "!help";
 	private static final Random RANDOM = new Random();
@@ -145,10 +145,6 @@ public class Queen {
         for (int i = 0; i < commands.length; i ++) {
         	String displayMess = responsesStr[i];
         	boolean admin = false;
-        	if (odds[i] != 0) {
-        		displayMess = responsesStr[i] + " / " + responses2Str[i];
-        	}
-        	
         	if (displayMess == null || displayMess.contains("null")) {
         		displayMess = responses2Str[i];
         	}
@@ -156,9 +152,10 @@ public class Queen {
         	if (i == 0) {
         		admin = true;
         	}
-        	if (odds[i] != 0 ) {
+        	if (odds[i] != 0 && i != 0) {
         		Integer index = i;
-        		addResponse(commands[i], null, responsesStr[i] + responses2Str[i],
+        		String responseDef = responsesStr[i] == null ? "" : responsesStr[i] + " / ";
+        		addResponse(commands[i], null, responseDef +  responses2Str[i],
         			contains[i], false, (api, event) -> {
         				if (RANDOM.nextInt(odds[index]) == 0) {
         					return responses2Str[index];
@@ -173,11 +170,6 @@ public class Queen {
         			displayMess, contains[i], admin, null);
         }
         addResponse(HELP_COMMAND, help, help, false, false, null);
-		addResponse("?", null, "yes / no", true, false, (api, event) -> {
-			String message = RANDOM.nextBoolean() ? "yes" : "no";			
-			event.getChannel().sendMessage(message);			
-			return null;
-		});
         addTerminatorCommand();
         
         /*
@@ -244,7 +236,7 @@ public class Queen {
 		
 		Response temp = new DefaultResponse(command, response, contains, lambda);
 
-		if (!adminOnly) {
+		if (!adminOnly && !command.equals(HELP_COMMAND)) {
 			String helpMessage = DefaultResponse.getHelpStr();
 			helpMessage = helpMessage == null ? "" : helpMessage;
 			

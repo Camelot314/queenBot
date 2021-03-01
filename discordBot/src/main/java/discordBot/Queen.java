@@ -487,7 +487,7 @@ public class Queen {
 	 * remove it will say removed. Otherwise it will say not found.
 	 */
 	private void addCustomsRemove() {
-		Response remove = new DefaultResponse("!customs-remove", null, false, 
+		Response remove = new DefaultResponse("!customs-remove", null, true, 
 				(api, event) -> {
 					
 			String input = event.getMessageContent().toLowerCase();
@@ -539,7 +539,7 @@ public class Queen {
 	 * ServerCustomCommands object associated with the server.
 	 */
 	private void addCustomsAdd() {
-		Response add = new DefaultResponse("!customs-add", null, false, (api, event) -> {
+		Response add = new DefaultResponse("!customs-add", null, true, (api, event) -> {
 			String input = event.getMessageContent().toLowerCase();
 			if (input.contains("!customs-add")
 					&& input.charAt(0) == '!') {

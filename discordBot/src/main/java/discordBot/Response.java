@@ -3,47 +3,199 @@ package discordBot;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.event.message.MessageCreateEvent;
 
-public interface Response extends Comparable<Response> {
+/**
+ * This is the default response class. It is the object that houses all the pre-
+ * loaded responses. these responses have lambda expressions. 
+ * @author Jaraad Kamal
+ *
+ */
+public class DefaultResponse implements Response {
+	private String command, response;
+	private boolean contains;
+	private Executable lambda;
+	private static String helpMessage;
+	private static String helpCommand;
+	private static int responseCount; 
 	
 	/**
-	 * The exec method that will return the response and execute the lambda 
-	 * expression. The lambda expression supersedes the return response. 
-	 * @param api
-	 * @param event
-	 * @return
+	 * Constructor. 
+	 * Initializes the static help message as the very first response
+	 * that is put into the constructor. It also initializes a static
+	 * random object that all the responses will use. 
+	 * @param command
+	 * @param response
+	 * @param contains
+	 * @param lambda
 	 */
-	public String exec(DiscordApi api, MessageCreateEvent event);
+	public DefaultResponse (String command, String response, boolean contains, Executable lambda) {
+		this.command = command;
+		this.response = response;
+		this.contains = contains;
+		
+		if (responseCount == 0) {
+			helpMessage = response;
+			helpCommand = command;
+		}
+		responseCount ++;
+		
+		this.lambda = lambda;
+	}
 	
 	/**
-	 * Overloaded exec method that will return the response (and if the object
-	 * it is called upon is the help command it will add the string add). It will
-	 * also execute any lambda function. The lambda expression supersedes the return
-	 * response.
-	 * @param api
-	 * @param event
-	 * @param add
+	 * Another constructor
+	 * @param command
+	 * @param response
+	 * @param contains
+	 */
+	public DefaultResponse (String command, String response,
+			boolean contains) {
+		this (command, response, contains, null);
+	}
+	
+	/**
+	 * Constructor
+	 * @param command
+	 * @param response
+	 * @param response2
+	 * @param contains
+	 * @param odd
+	 */
+	public DefaultResponse (String command, String response, String response2,
+			boolean contains, int odd) {
+		this (command, response, contains, null);
+
+	}	
+	
+	/**
+	 * This is a constructor that will be used to binary search. The object
+	 * initialized by this constructor should not be used by any other method
+	 * than the searching in the queen class.
+	 * @param command
+	 */
+	public DefaultResponse (String command) {
+		this(command, null, false);
+	}
+	
+	/**
+	 * Sets the help message.
+	 * @param help
+	 * @return boolean true if changed false otherwise
+	 */
+	public static boolean setHelpStr (String help) {
+		if (help != null) {
+			helpMessage = help;
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Returns the help string
 	 * @return
 	 */
-	public String exec(DiscordApi api, MessageCreateEvent event, String add);
+	public static String getHelpStr () {
+		return helpMessage;
+	}
+	
+	/**
+	 * Getter for the contains.
+	 * @return
+	 */
+	public boolean getContains() {
+		return contains;
+	}
+	
+	/**
+	 * Executes the lambda expression
+	 * @param input
+	 */
+	@Override
+	public String exec (DiscordApi api, MessageCreateEvent event) {
+		if (lambda != null) {
+			return lambda.exec(api, event);
+		} else {
+			return isCommand(event.getMessageContent(), null);
+		}
+	}
+	
+	/**
+	 * Executes the lambda expression but this is made for the cases where there
+	 * are custom commands and the help must be changed.
+	 * @param api
+	 * @param event
+	 * @param additonal
+	 * @return
+	 */
+	@Override
+	public String exec (DiscordApi api, MessageCreateEvent event, String additonal) {
+		if (lambda != null) {
+			return lambda.exec(api, event);
+		} else {
+			return isCommand(event.getMessageContent(), additonal);
+		}
+	}
+	
 	
 	/**
 	 * Returns the command.
 	 * @return
 	 */
-	public String getCommand();
-	
-	/**
-	 * Returns the default response.
-	 * @return
-	 */
-	public String getDefaultResponse();
-	
-	/**
-	 * compareTo method needed by the Comparable interface. It will compare by
-	 * the command.
-	 */
-	public default int compareTo(Response other) {
-		return getCommand().compareTo(other.getCommand());
+	@Override
+	public String getCommand() {
+		return command;
 	}
 	
+	/**
+	 * Returns the default response for the object.
+	 * @return
+	 */
+	@Override
+	public String getDefaultResponse() {
+		if (response != null) {
+			return response;
+		}
+		return "";
+	}
+	
+	/**
+	 * Compares responses by their command
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (obj == this) 
+			return true;
+		if (!(obj instanceof Response))
+			return false;
+		
+		Response other = (Response) obj;
+		return other.getCommand().equals(command);
+	}
+	
+	
+	/**
+	 * ToString() method.
+	 */
+	@Override
+	public String toString() {
+		return getCommand() + " : " + getDefaultResponse();
+	}
+	
+	/**
+	 * Returns the command if based on the instance variables
+	 * @param input
+	 * @return
+	 */
+	private String isCommand(String input, String additional) {
+		String toReturn = null;
+		input = input.toLowerCase();
+		if (input != null) {
+			if (command.equals(helpCommand)) {
+				toReturn = helpMessage;
+				toReturn += additional == null ? "" : additional;
+			} else {
+				toReturn = response;
+			}
+		}
+		return toReturn;
+	}
 }

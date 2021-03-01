@@ -8,6 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Random;
 
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
@@ -23,9 +24,6 @@ import org.javacord.api.event.message.MessageCreateEvent;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
-interface ExecServer {
-	public void executable(Server server);
-}
 
 /**
  * This is QueenBot
@@ -42,6 +40,8 @@ public class Queen {
 	private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord UserID of the person you want to have control */ null;
 	private static final String TOKEN = /* Bot token provided by discord */ null;
 	private static final String SAVED_DATA_FILE = "savedCustoms/savedData";
+	private static final String HELP_COMMAND = "!help";
+	private static final Random RANDOM = new Random();
 	private String help;
 	private DiscordApi api;
 	private boolean hasActiveVoiceChannels, isRunning;
@@ -50,9 +50,15 @@ public class Queen {
 	private ArrayList<Response> responses;
 	private ArrayList<Response> responseRelyContains;
 	private ArrayList<ServerCustomCommands> customs;
+
 	
 	public Queen() {     
         
+		help = "Hello I am QueenBot\n"
+	              + "I have a list of commands or phrases u may want to use:\n"
+	              + "!help" + Utilities.addSpaces("!help") + ": brings up my commandments";
+		
+		
         // commands list
         String[] commands =  {
         		 "!help", ".", "sorry",
@@ -87,9 +93,7 @@ public class Queen {
         		null, null
         };
         
-        help = "Hello I am QueenBot\n"
-              + "I have a list of commands or phrases u may want to use:\n"
-              + "!help" + Utilities.addSpaces("!help") + ": brings up my commandments";
+        
         
         responsesStr[0] = help;
         
@@ -131,7 +135,7 @@ public class Queen {
         responses = new ArrayList<>();
         activeVoiceServers = new ArrayList<>();
         responseRelyContains = new ArrayList<>();
-        
+        customs = new ArrayList<>();
         
         /*
          * Loops through all the arrays above and
@@ -152,17 +156,35 @@ public class Queen {
         	if (i == 0) {
         		admin = true;
         	}
-        	addResponse(commands[i], responsesStr[i], responses2Str[i],
-        			displayMess, contains[i], odds[i], admin, null);
+        	if (odds[i] != 0 ) {
+        		Integer index = i;
+        		addResponse(commands[i], null, responsesStr[i] + responses2Str[i],
+        			contains[i], false, (api, event) -> {
+        				if (RANDOM.nextInt(odds[index]) == 0) {
+        					return responses2Str[index];
+        				}
+        				return responsesStr[index];
+        			}
+        		);
+        		continue;
+        	}
+        	
+        	addResponse(commands[i], responsesStr[i],
+        			displayMess, contains[i], admin, null);
         }
-        
+        addResponse(HELP_COMMAND, help, help, false, false, null);
+		addResponse("?", null, "yes / no", true, false, (api, event) -> {
+			String message = RANDOM.nextBoolean() ? "yes" : "no";			
+			event.getChannel().sendMessage(message);			
+			return null;
+		});
         addTerminatorCommand();
         
         /*
          * Adding a custom response that executes a bit of code (that makes
          * a voice channel server when allowed and specified).
          */
-        addResponse("fight me", null, null, "*Special*", false, 0, false, 
+        addResponse("fight me", null, "*Special*", false, false, 
         		(api, event) -> {
         			
         	String input = event.getMessageContent().toLowerCase();
@@ -183,9 +205,6 @@ public class Queen {
         
         addCustomCommands();
         addCustomHelperCommands();
-        
-        
-		customs = new ArrayList<>();
 		loadCustoms();
 	}
 
@@ -208,21 +227,23 @@ public class Queen {
 	 * @throws IllegalArgumentException if command is null or both responses and
 	 * lambda are null.
 	 */
-	public void addResponse(String command, String response, String response2, 
-			String displayMes, boolean contains, int odd, boolean adminOnly, 
-			Executable lambda) {
+		
+	public void addResponse(String command, String response, 
+				String displayMes, boolean contains, boolean adminOnly, 
+				Executable lambda) {
 		
 		if (command == null) {
 			throw new IllegalArgumentException("You must have an agrument for command");
 		}
 		
-		if (response == null && response2 == null && lambda == null) {
+		if (response == null && lambda == null) {
 			throw new IllegalArgumentException(
 					"If you have no responses then the executable must not be null"
 			);
 		}
 		
-		Response temp = new DefaultResponse(command, response, response2, contains, odd, lambda);
+		Response temp = new DefaultResponse(command, response, contains, lambda);
+
 		if (!adminOnly) {
 			String helpMessage = DefaultResponse.getHelpStr();
 			helpMessage = helpMessage == null ? "" : helpMessage;
@@ -344,7 +365,7 @@ public class Queen {
 	 * ends the bot.
 	 */
 	private void addTerminatorCommand() {
-        addResponse("!terminate", null, null, "terminates", true, 0, true, (api, event) -> {
+        addResponse("!terminate", null, "terminates", true, true, (api, event) -> {
         	String input = event.getMessageContent().toLowerCase();
         	boolean terminateMessage = false;
         	boolean willListen = false;
@@ -420,7 +441,7 @@ public class Queen {
 	 * in the constructor. 
 	 */
 	private void addCustomCommands() {
-		addResponse("!customs", null, null, "check custom commands", false, 0, false, 
+		addResponse("!customs", null, "check custom commands", false, false, 
 				(api, event) -> {
 					if (event.getMessageContent().toLowerCase().equals("!customs")) {
 						Server server = getServer(event);
@@ -834,4 +855,9 @@ public class Queen {
 		}
 	}
 
+}
+
+
+interface ExecServer {
+	public void executable(Server server);
 }

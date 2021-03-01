@@ -3,6 +3,7 @@ package discordBot;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Random;
 
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
@@ -26,26 +27,29 @@ public class Queen {
 	private static final String HELP_COMMAND = "!help";
 	private String help;
 	private DiscordApi api;
-	private boolean isRunning;
-	
+	private boolean isRunning;	
 	private ArrayList<Response> responses;
 	private ArrayList<Response> responseRelyContains;
+	private static final Random RANDOM = new Random();
 	
 	public Queen() {     
         
 		help = "Hello I am QueenBot\n"
 	              + "I have a list of commands or phrases u may want to use:\n"
-	              + "!help" + Utilities.addSpaces("!help") + ": brings up my commandments";
-		
+	              + "!help" + Utilities.addSpaces("!help") + ": brings up my commandments";        
         
         
+        // creates the arraylists.
+        responses = new ArrayList<>();
+        responseRelyContains = new ArrayList<>();
         
-        	// creates the arraylists.
-        	responses = new ArrayList<>();
-        	responseRelyContains = new ArrayList<>();
-        	addResponse(HELP_COMMAND, help, help, false, 0, false, null);
-        	addTerminatorCommand();
- 
+        addResponse(HELP_COMMAND, help, help, false, false, null);
+        addResponse("?", null, "yes / no", true, false, (api, event) -> {
+			String message = RANDOM.nextBoolean() ? "yes" : "no";			
+			event.getChannel().sendMessage(message);			
+			return null;
+		});
+        addTerminatorCommand();
 	}
 
 	
@@ -67,9 +71,10 @@ public class Queen {
 	 * @throws IllegalArgumentException if command is null or both responses and
 	 * lambda are null.
 	 */
+		
 	public void addResponse(String command, String response, 
-			String displayMes, boolean contains, int odd, boolean adminOnly, 
-			Executable lambda) {
+				String displayMes, boolean contains, boolean adminOnly, 
+				Executable lambda) {
 		
 		if (command == null) {
 			throw new IllegalArgumentException("You must have an agrument for command");
@@ -183,7 +188,7 @@ public class Queen {
 	 * ends the bot.
 	 */
 	private void addTerminatorCommand() {
-		addResponse("!terminate", null, "terminates", true, 0, true, (api, event) -> {
+		addResponse("!terminate", null, "terminates", true, true, (api, event) -> {
         	String input = event.getMessageContent().toLowerCase();
         	boolean terminateMessage = false;
         	boolean willListen = false;

@@ -1,5 +1,6 @@
 package discordBot;
 
+
 import org.javacord.api.DiscordApi;
 import org.javacord.api.event.message.MessageCreateEvent;
 
@@ -16,6 +17,8 @@ public class DefaultResponse implements Response {
 	private static String helpMessage;
 	private static String helpCommand;
 	private static int responseCount; 
+	
+	
 	
 	/**
 	 * Constructor. 
@@ -64,7 +67,8 @@ public class DefaultResponse implements Response {
 			boolean contains, int odd) {
 		this (command, response, contains, null);
 
-	}	
+	}
+	
 	
 	/**
 	 * This is a constructor that will be used to binary search. The object
@@ -111,11 +115,7 @@ public class DefaultResponse implements Response {
 	 */
 	@Override
 	public String exec (DiscordApi api, MessageCreateEvent event) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
-			return isCommand(event.getMessageContent(), null);
-		}
+		return exec(api, event, null);
 	}
 	
 	/**
@@ -128,11 +128,15 @@ public class DefaultResponse implements Response {
 	 */
 	@Override
 	public String exec (DiscordApi api, MessageCreateEvent event, String additonal) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
-			return isCommand(event.getMessageContent(), additonal);
+		String input = event.getMessageContent().toLowerCase();
+		if ((contains && input.contains(command)) || input.equals(command)) {
+			if (lambda != null) {
+				return lambda.exec(api, event);
+			} else {
+				return isCommand(event.getMessageContent(), additonal);
+			}
 		}
+		return null;
 	}
 	
 	
@@ -187,6 +191,8 @@ public class DefaultResponse implements Response {
 	 */
 	private String isCommand(String input, String additional) {
 		String toReturn = null;
+		
+		additional = additional == null ? "" : additional;
 		input = input.toLowerCase();
 		if (input != null) {
 			if (command.equals(helpCommand)) {

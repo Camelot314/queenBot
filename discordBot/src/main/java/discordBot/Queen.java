@@ -12,7 +12,6 @@ import java.util.Random;
 
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.entity.channel.ServerChannel;
 import org.javacord.api.entity.channel.ServerVoiceChannel;
 import org.javacord.api.entity.channel.ServerVoiceChannelBuilder;
 import org.javacord.api.entity.channel.TextChannel;
@@ -21,7 +20,6 @@ import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.server.Server;
 import org.javacord.api.event.message.MessageCreateEvent;
 
-import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
 
@@ -33,12 +31,12 @@ import java.util.concurrent.TimeUnit;
  * QueenBot will end the program if the authorized terminator sends the kill 
  * code which is /@botname !terminate.
  * 
- * @author kjara
+ * @author Jaraad
  *
  */
 public class Queen {
-    private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord User id of authorized terminator */ "";
-    private static final String TOKEN = /* Bot Token that discord gives you */ "";
+	private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord User id of authorized terminator */ "";
+	private static final String TOKEN = /* Bot Token that discord gives you */ "";
 	private static final String SAVED_DATA_FILE = "savedCustoms/savedData";
 	private static final String HELP_COMMAND = "!help";
 	private static final Random RANDOM = new Random();
@@ -46,7 +44,6 @@ public class Queen {
 	private DiscordApi api;
 	private boolean hasActiveVoiceChannels, isRunning;
 	private ArrayList<VoiceChannelServer> activeVoiceServers;
-	
 	private ArrayList<Response> responses;
 	private ArrayList<Response> responseRelyContains;
 	private ArrayList<ServerCustomCommands> customs;
@@ -131,7 +128,7 @@ public class Queen {
         
         
         
-        // creates the arraylists.
+        // creates the arrayLists.
         responses = new ArrayList<>();
         activeVoiceServers = new ArrayList<>();
         responseRelyContains = new ArrayList<>();
@@ -145,18 +142,20 @@ public class Queen {
         for (int i = 0; i < commands.length; i ++) {
         	String displayMess = responsesStr[i];
         	boolean admin = false;
+        	
+        	admin = i == 0 || (i > 0 && responsesStr[i] != null && 
+        			responsesStr[i - 1] != null && responsesStr[i].equals(responsesStr[i - 1]));
+        	
         	if (displayMess == null || displayMess.contains("null")) {
         		displayMess = responses2Str[i];
-        	}
-        	
-        	if (i == 0) {
         		admin = true;
         	}
+        	
         	if (odds[i] != 0 && i != 0) {
         		Integer index = i;
         		String responseDef = responsesStr[i] == null ? "" : responsesStr[i] + " / ";
         		addResponse(commands[i], null, responseDef +  responses2Str[i],
-        			contains[i], false, (api, event) -> {
+        			contains[i], admin, (api, event) -> {
         				if (RANDOM.nextInt(odds[index]) == 0) {
         					return responses2Str[index];
         				}
@@ -186,9 +185,9 @@ public class Queen {
     				if (server.canYouCreateChannels()) {
     					event.getChannel().sendMessage("Join the rig then");
         				addVoice(api, server.getId(), event.getChannel().getId());
-    				} else {
-    					event.getChannel().sendMessage("I am not allowed to");
+        				return null;
     				}
+    				event.getChannel().sendMessage("I am not allowed to");
     			}
         	}
 			
@@ -198,8 +197,43 @@ public class Queen {
         addCustomCommands();
         addCustomHelperCommands();
 		loadCustoms();
+		addResponse("save", "saving", null, true, true, (api, event) -> {
+			String message = event.getMessageContent();
+			boolean performed = message.contains("" + api.getYourself().getId());
+			performed = message.contains("save");
+			performed = performed && event.getMessageAuthor().getDiscriminatedName().equals(CREATOR);
+			
+			if (performed) {
+				saveCustoms();
+			}
+
+			
+			return performed ? "saved" : null;
+		});
 	}
 
+	
+	/**
+	 * The toString method.
+	 */
+	@Override
+	public String toString() {
+		return help;
+	}
+	
+	/**
+	 * Returns true if the response input is equal (compared by command) to one 
+	 * of the default commands in the responses string.
+	 * @param toCheck
+	 * @return true if the response is in the responses.
+	 */
+	public boolean hasResponse(Response toCheck) {
+		int index = Collections.binarySearch(responses, toCheck);
+		if (index > -1) {
+			return true;
+		}
+		return false;
+	}
 	
 	
 	/**
@@ -261,62 +295,14 @@ public class Queen {
 			
 			api = new DiscordApiBuilder().setToken(TOKEN).login().join();
 			api.addMessageCreateListener(event -> {
-				Collections.sort(responses);
-	        	String toSend = null;
-	        	String helpAddition;
-	        	String input;
-        		DefaultResponse toFind;
-        		Response response;
         		ServerCustomCommands custom = findCustom(event);
-	        	boolean hasCustoms = custom != null, sent = false;
+	        	boolean hasCustoms = custom != null;
 	        	
 	        	long messageSender = event.getMessageAuthor().getId();
 	        	boolean senderIsYou = messageSender == api.getYourself().getId();
 	        	
 	        	if (!senderIsYou) {
-	        		
-	        		helpAddition = custom == null ? "" : "\n" + custom.getCustomHelpAddition();
-	        		input = event.getMessageContent().toLowerCase();
-	        		toFind = new DefaultResponse(input);
-	        		
-	        		int index = Collections.binarySearch(responses, toFind);
-	        		response = index > -1 ? responses.get(index) : null;
-	        		
-	        		if (response != null) {
-						if (hasCustoms) {
-							toSend = response.exec(api, event, helpAddition);
-						} else {
-							toSend = response.exec(api, event);
-						}
-						if (toSend != null && toSend.equals(help + helpAddition)) {
-							new MessageBuilder().setEmbed(new EmbedBuilder().setTitle("Commandments")
-									.setColor(Color.yellow).setDescription(help + helpAddition))
-									.send(event.getChannel());
-							sent = true;
-						} else if (toSend != null) {
-							event.getChannel().sendMessage(toSend);
-							sent = true;
-						} 
-	        		} else {
-	        			// where the binary search didn't work but there still
-	        			// may be a chance that it is in rely contains.
-	        			
-	        			for (Response responseCont : responseRelyContains) {
-	        				toSend = responseCont.exec(api, event, helpAddition);
-	        				if (toSend != null) {
-	        					event.getChannel().sendMessage(toSend);
-	        					sent = true;
-	        				}	
-	        			}
-	        			if (!sent && hasCustoms) {
-	        				// was not in responses or rely contains. but is a
-	        				// custom
-	        				toSend = custom.returnCustomResponse(api, event);
-	        				if (toSend != null) {
-	        					event.getChannel().sendMessage(toSend);
-	        				}
-	        			}
-	        		}
+	        		findMessage(event, custom, hasCustoms);
 	        	}
 	        	
 	        	
@@ -324,27 +310,79 @@ public class Queen {
 	        });
 		}
 	}
-	
+
 	/**
-	 * The toString method.
+	 * Finds and sends the appropriate message.
+	 * @param event
+	 * @param custom
+	 * @param hasCustoms
+	 * @param sent
 	 */
-	@Override
-	public String toString() {
-		return help;
-	}
-	
-	/**
-	 * Returns true if the response input is equal (compared by command) to one 
-	 * of the default commands in the responses string.
-	 * @param toCheck
-	 * @return true if the response is in the responses.
-	 */
-	public boolean hasResponse(Response toCheck) {
-		int index = Collections.binarySearch(responses, toCheck);
-		if (index > -1) {
-			return true;
+	private void findMessage(MessageCreateEvent event, ServerCustomCommands custom, 
+			boolean hasCustoms) {
+		
+		String toSend;
+		String helpAddition;
+		String input;
+		DefaultResponse toFind;
+		Response response;
+		boolean sent = false;
+		
+		helpAddition = custom == null ? null : "\n" + custom.getCustomHelpAddition();
+		input = event.getMessageContent().toLowerCase();
+		toFind = new DefaultResponse(input);
+		
+		int index = Collections.binarySearch(responses, toFind);
+		response = index > -1 ? responses.get(index) : null;
+		
+		if (response != null) {
+			hasResponse(event, helpAddition, response);
+			sent = true;
+		} 
+		// where the binary search didn't work but there still
+		// may be a chance that it is in rely contains.
+
+		
+		if (!sent) {
+			for (Response responseCont : responseRelyContains) {
+				toSend = responseCont.exec(api, event, helpAddition);
+				sent = Utilities.foundResponseCont(event, toSend);
+			}
+			if (!sent && hasCustoms) {
+				// was not in responses or rely contains, but is a custom
+				toSend = custom.returnCustomResponse(api, event);
+				Utilities.sendMessage(event, toSend);
+			}
 		}
-		return false;
+		
+	}
+
+	/**
+	 * If the binary search for responses provides a valid value then it will 
+	 * perform this method.
+	 * @param event
+	 * @param helpAddition
+	 * @param response
+	 */
+	private void hasResponse(MessageCreateEvent event, String helpAddition, Response response) {
+		String toSend;
+		toSend = response.exec(api, event, helpAddition);
+		if (toSend != null && toSend.equals(help + helpAddition)) {
+			sendHelpMessage(event, helpAddition);
+			return;
+		}
+		Utilities.sendMessage(event, toSend);
+	}
+
+	/**
+	 * Creates the embedded help message.
+	 * @param event
+	 * @param helpAddition
+	 */
+	private void sendHelpMessage(MessageCreateEvent event, String helpAddition) {
+		new MessageBuilder().setEmbed(new EmbedBuilder().setTitle("Commandments")
+				.setColor(Color.yellow).setDescription(help + helpAddition))
+				.send(event.getChannel());
 	}
 	
 	
@@ -358,34 +396,44 @@ public class Queen {
 	 */
 	private void addTerminatorCommand() {
         addResponse("!terminate", null, "terminates", true, true, (api, event) -> {
-        	String input = event.getMessageContent().toLowerCase();
-        	boolean terminateMessage = false;
-        	boolean willListen = false;
-        	if (input.contains("" + api.getYourself().getId())) {
-        		terminateMessage = input.contains("!") && input.contains("terminate");
-        	}
-        	willListen = event.getMessageAuthor().getDiscriminatedName()
-        			.equals(USERNAME_OF_AUTH_TERMINATOR);
-        	
-        	if (terminateMessage && willListen) {
-            	if (hasActiveVoiceChannels) {
-            		event.getChannel().sendMessage("Deleting Voice Channels");
-            		deleteAllVoiceChannels();
-            	}
-            	if (customs.size() > 0) {
-            		event.getChannel().sendMessage("Saving customs");
-            		saveCustoms();
-            	}
-            	event.getChannel().sendMessage("Terminating");
-            	System.out.println("input: " + input );
-            	System.out.println("User: " + event.getMessageAuthor().getDiscriminatedName());
-            	System.out.println("User id: " + event.getMessageAuthor().getId());
-            	System.out.println("QueenBot user id:" + api.getYourself().getId());
-            	System.exit(0);
-        	}
-        	return null;
+        	return terminatorExec(api, event);
         	
         });
+	}
+
+	/**
+	 * Code that is run when the terminator command is called.
+	 * @param api
+	 * @param event
+	 * @return a null String reference. 
+	 */
+	private String terminatorExec(DiscordApi api, MessageCreateEvent event) {
+		String input = event.getMessageContent().toLowerCase();
+		boolean terminateMessage = false;
+		boolean willListen = false;
+		if (input.contains("" + api.getYourself().getId())) {
+			terminateMessage = input.contains("!") && input.contains("terminate");
+		}
+		willListen = event.getMessageAuthor().getDiscriminatedName()
+				.equals(CREATOR);
+		
+		if (terminateMessage && willListen) {
+			if (hasActiveVoiceChannels) {
+				event.getChannel().sendMessage("Deleting Voice Channels");
+				deleteAllVoiceChannels();
+			}
+			if (customs.size() > 0) {
+				event.getChannel().sendMessage("Saving customs");
+				saveCustoms();
+			}
+			event.getChannel().sendMessage("Terminating");
+			System.out.println("input: " + input );
+			System.out.println("User: " + event.getMessageAuthor().getDiscriminatedName());
+			System.out.println("User id: " + event.getMessageAuthor().getId());
+			System.out.println("QueenBot user id:" + api.getYourself().getId());
+			System.exit(0);
+		}
+		return null;
 	}
 	
 	/**
@@ -435,36 +483,27 @@ public class Queen {
 	private void addCustomCommands() {
 		addResponse("!customs", null, "check custom commands", false, false, 
 				(api, event) -> {
-					if (event.getMessageContent().toLowerCase().equals("!customs")) {
-						Server server = getServer(event);
-						if (server != null) {
-							String customCommands[] = {
-									"!customs-on/off" + Utilities.addSpaces("!customs on/off") +
-									": enables or disables customs",
-									"!customs-clear" + Utilities.addSpaces("!customs clear") 
-									+ ": clears all customs",
-									"!customs-add" + Utilities.addSpaces("!customs add") + 
-									": adds custom (input and output need to be separated by a \":\"",
-									"!customs-remove" + Utilities.addSpaces("!customs remove") +
-									": removes the specified custom by input"
-							};
-							
-							String commandStr = customCommands[0];
-							for (int i = 1; i < customCommands.length; i ++) {
-								commandStr += "\n" + customCommands[i];
-							}
-							new MessageBuilder().setEmbed(new EmbedBuilder()
-		        					.setTitle("Customs Settings")
-		        					.setColor(Color.yellow)
-		        					.setDescription(commandStr)
-		        				).send(event.getChannel());
-							
-						} else {
-							event.getChannel().sendMessage("No customs outside of servers");
-						}
-					}
-					return null;	
+					return customsExec(event);	
 		});
+	}
+
+
+	/**
+	 * Checks to see if the input matches the command and if so then sends
+	 * the message.
+	 * @param event
+	 * @return a null string reference.
+	 */
+	private String customsExec(MessageCreateEvent event) {
+		if (event.getMessageContent().toLowerCase().equals("!customs")) {
+			Server server = getServer(event);
+			if (server != null) {
+				Utilities.sendCustomsListMessage(event);
+				return null;
+			}
+			event.getChannel().sendMessage("No customs outside of servers");
+		}
+		return null;
 	}
 	
 	/**
@@ -475,9 +514,6 @@ public class Queen {
 		addCustomsClear();
 		addCustomsAdd();
 		addCustomsRemove();
-		
-		
-		
 	}
 
 	/**
@@ -490,47 +526,44 @@ public class Queen {
 		Response remove = new DefaultResponse("!customs-remove", null, true, 
 				(api, event) -> {
 					
-			String input = event.getMessageContent().toLowerCase();
-			if (input.contains("!customs-remove")
-					&& input.charAt(0) == '!') {
-				
-				ServerCustomCommands custom = findCustom(event);
-				
-				if (custom != null) {
-					String[] args = Utilities.interpreter(event.getMessageContent(), 1, true);
-					
-					if (args == null) {
-						event.getChannel().sendMessage(
-								"I could not understand\n" +
-								"Make sure your text reads the command then "
-								+ "\"input of custom\""
-							);
-					} else {
-						args[0] = args[0].toLowerCase();
-						if (custom.remove(args[0])) {
-							event.getChannel().sendMessage(
-									"Removed the " +
-									"\"" + args[0] + "\" trigger"
-							);
-						} else {
-							event.getChannel().sendMessage("Could not find command");
-						}
-						
-					}
-					
-					
-				} else {
-					event.getChannel().sendMessage("you have to enable customs first");
-				}
-			}
-			
-			return null;
+			return customsRemoveExec(event);
 		});
 		responses.add(remove);
 		responseRelyContains.add(remove);
 	}
 
-
+	/**
+	 * Action performed when the customs remove is called by user.
+	 * @param event
+	 * @return a null string reference.
+	 */
+	private String customsRemoveExec(MessageCreateEvent event) {
+		String input = event.getMessageContent().toLowerCase();
+		if (input.contains("!customs-remove")
+				&& input.charAt(0) == '!') {
+			
+			ServerCustomCommands custom = findCustom(event);
+			
+			if (custom != null) {
+				String[] args = Utilities.interpreter(event.getMessageContent(), 1, true);
+				
+				if (args == null) {
+					Utilities.sendErrorRemoveMessage(event);
+					return null;
+				}
+				args[0] = args[0].toLowerCase();
+				String confirmationMess = custom.remove(args[0]) ? 
+						"Removed the " + "\"" + args[0] + "\" trigger" 
+						: "Could not find command";
+				
+				event.getChannel().sendMessage(confirmationMess);
+				return null;
+			} 
+			event.getChannel().sendMessage("you have to enable customs first");
+		}
+		
+		return null;
+	}
 
 	/**
 	 * This adds the customs add command. This will first check if the customs are
@@ -541,59 +574,43 @@ public class Queen {
 	private void addCustomsAdd() {
 		Response add = new DefaultResponse("!customs-add", null, true, (api, event) -> {
 			String input = event.getMessageContent().toLowerCase();
-			if (input.contains("!customs-add")
-					&& input.charAt(0) == '!') {
+			if (input.contains("!customs-add") && input.charAt(0) == '!') {
 
 				ServerCustomCommands custom = findCustom(event);
-				
 				if (custom != null) {
 					String[] args = Utilities.interpreter(event.getMessageContent(), 2, true);
 					if (args == null) {
-						event.getChannel().sendMessage(
-								"I could not understand\n" +
-								"Make sure your text reads the command then "
-								+ "\"input : output\""
-							);
+						Utilities.sendErrorAddMessage(event, false);
 					} else {
 						args[0] = args[0].toLowerCase();
 						boolean sendError = false;
+						
 						for (Response response : responseRelyContains) {
 							if (args[0].contains(response.getCommand())) {
 								sendError = true;
 							}
 						}
 						if (sendError) {
-							
-							event.getChannel().sendMessage(
-									"Sorry but I can't let"
-									+ "you add this response it may already be used"
-									+ " for reasons");
-						} else if (custom.addResponse(args[0], args[1], this)) {
-							event.getChannel().sendMessage(
-									"\"" + args[0] + "\" triggers" 
-									+ "\"" + args[1] + "\""
-							);
-						} else {
-							event.getChannel().sendMessage(
-									"Error :\\"
-									+ " Already added or is already command"
-									);
+							Utilities.sendErrorAddMessage(event,true);
+							return null;
 						}
 						
+						if (custom.addResponse(args[0], args[1], this)) {
+							Utilities.sendAddConfirmation(event, args);
+						} else {
+							Utilities.sendErrorAddMessage(event,true);
+						}
 					}
 					
-					
-				} else {
-					event.getChannel().sendMessage("you have to enable customs first");
-				}
+					return null;
+				} 
+				event.getChannel().sendMessage("you have to enable customs first");
 			}
 			return null;
 		});
 		responses.add(add);
 		responseRelyContains.add(add);
 	}
-
-
 
 	/**
 	 * This will remove or clear all the customs on the server. First it checks if
@@ -697,13 +714,7 @@ public class Queen {
 	 * @return reference to a server.
 	 */
 	private Server getServer(MessageCreateEvent event) {
-		Server server;
-		try {
-			server = event.getServer().get();
-		} catch (NoSuchElementException e) {
-			server = null;
-		}
-		return server;
+		return event.getServer().orElse(null);
 	}
 	
 	/**
@@ -814,18 +825,9 @@ public class Queen {
 				VoiceChannelServer current = activeVoiceServers.get(i);
 				
 				serverMethod(current.getServerId(), (server) -> {
-					ServerChannel channel;
-					try {
-						channel = server.getVoiceChannelById(
-								current.getVoiceChannelId()
-								).get();
-					} catch (NoSuchElementException e) {
-						channel = null;
-					}
-					if (channel != null) {
+					server.getVoiceChannelById(current.getVoiceChannelId()).ifPresent(channel -> {
 						channel.delete();
-					}
-							
+					});	
 				});
 			}
 		}
@@ -846,10 +848,15 @@ public class Queen {
 			exec.executable(server);
 		}
 	}
+	
+	/**
+	 *  Private interface that allows for the use of a lambda expression.
+	 * @author Jaraad
+	 *
+	 */
+	@FunctionalInterface
+	private interface ExecServer {
+		public void executable(Server server);
+	}
 
-}
-
-
-interface ExecServer {
-	public void executable(Server server);
 }

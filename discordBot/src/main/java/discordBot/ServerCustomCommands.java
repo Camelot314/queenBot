@@ -10,7 +10,7 @@ import org.javacord.api.event.message.MessageCreateEvent;
 /**
  * This is an object associated with a server that keeps track of all the 
  * custom responses.
- * @author kjara
+ * @author Jaraad
  *
  */
 public class ServerCustomCommands implements Comparable <ServerCustomCommands>, Serializable {
@@ -143,7 +143,7 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 		Response toFind = new SimpleResponse(command);
 		int index = Collections.binarySearch(customResponses, toFind);
 		if (index > -1) {
-			return customResponses.get(index).exec(api, event);
+			return customResponses.get(index).exec(api, event, null);
 		}
 		return toSend;
 	}

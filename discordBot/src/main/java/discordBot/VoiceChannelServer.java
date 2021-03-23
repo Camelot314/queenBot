@@ -6,7 +6,7 @@ import java.util.Comparator;
  * This is a final class that basically
  * just houses the id for the server and voice channel
  * that it is provided.
- * @author kjara
+ * @author Jaraad
  *
  */
 public final class VoiceChannelServer implements Comparable<VoiceChannelServer>{

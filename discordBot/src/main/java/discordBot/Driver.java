@@ -6,7 +6,7 @@ package discordBot;
  * using the Queen.addResponse() method.
  * After all the adding is done execute the
  * Queen.run() method. 
- * @author kjara
+ * @author Jaraad
  *
  */
 public class Driver {

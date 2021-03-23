@@ -1,6 +1,5 @@
 package discordBot;
 
-import java.util.Random;
 
 import org.javacord.api.DiscordApi;
 import org.javacord.api.event.message.MessageCreateEvent;
@@ -8,15 +7,13 @@ import org.javacord.api.event.message.MessageCreateEvent;
 /**
  * This is the default response class. It is the object that houses all the pre-
  * loaded responses. these responses have lambda expressions. 
- * @author Jaraad Kamal
+ * @author Jaraad
  *
  */
 public class DefaultResponse implements Response {
-	private String command, response, response2;
-	private boolean contains, isProb;
-	private int odd;
+	private String command, response;
+	private boolean contains;
 	private Executable lambda;
-	private static Random random;
 	private static String helpMessage;
 	private static String helpCommand;
 	private static int responseCount; 
@@ -31,28 +28,16 @@ public class DefaultResponse implements Response {
 	 * @param command
 	 * @param response
 	 * @param contains
-	 * @param isProb
-	 * @param odd
+	 * @param lambda
 	 */
-	public DefaultResponse (String command, String response, String response2,
-			boolean contains, boolean isProb, int odd, Executable lambda) {
-		
+	public DefaultResponse (String command, String response, boolean contains, Executable lambda) {
 		this.command = command;
 		this.response = response;
-		this.response2 = response2;
 		this.contains = contains;
-
-		this.odd = odd >= 0 ? odd : 0;
-		if (odd == 0) {
-			this.isProb = false;
-		} else {
-			this.isProb = true;
-		}
 		
 		if (responseCount == 0) {
 			helpMessage = response;
 			helpCommand = command;
-			random = new Random();
 		}
 		responseCount ++;
 		
@@ -67,20 +52,7 @@ public class DefaultResponse implements Response {
 	 */
 	public DefaultResponse (String command, String response,
 			boolean contains) {
-		this (command, response, null, contains, false, 0, null);
-	}
-	
-	/**
-	 * Constructor
-	 * @param command
-	 * @param response
-	 * @param contains
-	 * @param function
-	 */
-	public DefaultResponse (String command, String response, boolean contains, 
-			Executable function) {
-		
-		this (command, response, null, contains, false, 0, function);
+		this (command, response, contains, null);
 	}
 	
 	/**
@@ -93,23 +65,8 @@ public class DefaultResponse implements Response {
 	 */
 	public DefaultResponse (String command, String response, String response2,
 			boolean contains, int odd) {
-		
-		this (command, response, response2, contains, true, odd, null);
-	}
-	
-	/**
-	 * Constructor
-	 * @param command
-	 * @param response
-	 * @param response2
-	 * @param contains
-	 * @param odd
-	 * @param function
-	 */
-	public DefaultResponse (String command, String response, String response2,
-			boolean contains, int odd, Executable function) {
-		
-		this (command, response, response2, contains, true, odd, function);
+		this (command, response, contains, null);
+
 	}
 	
 	
@@ -138,23 +95,18 @@ public class DefaultResponse implements Response {
 	
 	/**
 	 * Returns the help string
-	 * @return
+	 * @return String the current help message for all responses.
 	 */
 	public static String getHelpStr () {
 		return helpMessage;
 	}
 	
 	/**
-	 * Executes the lambda expression
-	 * @param input
+	 * Getter for the contains.
+	 * @return boolean true if it uses the contains
 	 */
-	@Override
-	public String exec (DiscordApi api, MessageCreateEvent event) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
-			return isCommand(event.getMessageContent(), null);
-		}
+	public boolean getContains() {
+		return contains;
 	}
 	
 	/**
@@ -163,15 +115,19 @@ public class DefaultResponse implements Response {
 	 * @param api
 	 * @param event
 	 * @param additonal
-	 * @return
+	 * @return a string that will be sent either from response or lambda expression
+	 *  or null if the input is different from the command.
 	 */
 	@Override
 	public String exec (DiscordApi api, MessageCreateEvent event, String additonal) {
-		if (lambda != null) {
-			return lambda.exec(api, event);
-		} else {
+		String input = event.getMessageContent().toLowerCase();
+		if ((contains && input.contains(command)) || input.equals(command)) {
+			if (lambda != null) {
+				return lambda.exec(api, event);
+			}
 			return isCommand(event.getMessageContent(), additonal);
 		}
+		return null;
 	}
 	
 	
@@ -222,30 +178,19 @@ public class DefaultResponse implements Response {
 	/**
 	 * Returns the command if based on the instance variables
 	 * @param input
-	 * @return
+	 * @return a string.
 	 */
 	private String isCommand(String input, String additional) {
-		boolean send;
 		String toReturn = null;
+		
+		additional = additional == null ? "" : additional;
 		input = input.toLowerCase();
 		if (input != null) {
-			send = contains && !input.contains(helpMessage) && input.contains(command) 
-					|| input.equals(command);
-			if (input.contains("yes peasant") || input.contains("do you want a 14th")) {
-				send = false;
-			} else if (send && !isProb) {
+			if (command.equals(helpCommand)) {
+				toReturn = helpMessage;
+				toReturn += additional == null ? "" : additional;
+			} else {
 				toReturn = response;
-			} else if (send && isProb) {
-				if (random.nextInt(odd) == 0) {
-					toReturn =  response2;
-				} else {
-					if (command.equals(helpCommand)) {
-						toReturn = helpMessage;
-						toReturn += additional == null ? "" : additional;
-					} else {
-						toReturn = response;
-					}
-				}
 			}
 		}
 		return toReturn;

@@ -5,6 +5,12 @@ import java.io.Serializable;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.event.message.MessageCreateEvent;
 
+/**
+ * The simple response class is the type of response that is created by the 
+ * Discord User. 
+ * @author Jaraad
+ *
+ */
 public final class SimpleResponse implements Serializable, Response {
 	/**
 	 * 
@@ -30,14 +36,6 @@ public final class SimpleResponse implements Serializable, Response {
 	 */
 	public SimpleResponse(String command) {
 		this.command = command;
-	}
-	
-	/**
-	 * The executes. Basically gets the response. 
-	 */
-	@Override
-	public String exec(DiscordApi api, MessageCreateEvent event) {
-		return getDefaultResponse();
 	}
 
 	/**

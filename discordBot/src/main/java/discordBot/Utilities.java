@@ -1,7 +1,16 @@
 package discordBot;
 
+import java.awt.Color;
 
+import org.javacord.api.entity.message.MessageBuilder;
+import org.javacord.api.entity.message.embed.EmbedBuilder;
+import org.javacord.api.event.message.MessageCreateEvent;
 
+/**
+ * Utilities class that provides some stuff and holds all static methods.
+ * @author Jaraad
+ *
+ */
 public final class Utilities {
 
 	
@@ -69,5 +78,99 @@ public final class Utilities {
 		}
 		return toReturn;		
 		
+	}
+	
+	/**
+	 * Method called when a response that relies on contains is found in the for 
+	 * loop
+	 * @param event
+	 * @param toSend
+	 * @param sent
+	 * @return boolean true if it sent the message false if not
+	 */
+	public static boolean foundResponseCont(MessageCreateEvent event, String toSend) {
+		boolean sent = false;
+		if (toSend != null) {
+			event.getChannel().sendMessage(toSend);
+			sent = true;
+		}
+		return sent;
+	}
+	
+	/**
+	 * Sends a message in the channel it received the message.
+	 * @param event
+	 * @param toSend
+	 */
+	public static void sendMessage(MessageCreateEvent event, String toSend) {
+		if (toSend != null) {
+			event.getChannel().sendMessage(toSend);
+		}
+	}
+	
+	/**
+	 * Sends the appropriate embedded Message
+	 * @param event
+	 * @param commandStr
+	 */
+	public static void sendCustomsListMessage(MessageCreateEvent event) {
+		
+		String commandStr = "!customs-on/off" + Utilities.addSpaces("!customs on/off") 
+			+ ": enables or disables customs\n" + "!customs-clear" 
+			+ Utilities.addSpaces("!customs clear") + ": clears all customs\n"
+			+ "!customs-add" + Utilities.addSpaces("!customs add") 
+			+ ": adds custom (input and output need to be separated by a \":\""
+			+ "!customs-remove" + Utilities.addSpaces("!customs remove") 
+			+ ": removes the specified custom by input";
+		
+		new MessageBuilder().setEmbed(new EmbedBuilder()
+				.setTitle("Customs Settings")
+				.setColor(Color.yellow)
+				.setDescription(commandStr)
+			).send(event.getChannel());
+	}
+	
+	/**
+	 * Sends an error message when the parser doesn't function.
+	 * @param event
+	 */
+	public static void sendErrorRemoveMessage(MessageCreateEvent event) {
+		event.getChannel().sendMessage(
+				"I could not understand\n" +
+				"Make sure your text reads the command then "
+				+ "\"input of custom\""
+			);
+	}
+	
+	/**
+	 * Sends a message confirming that the response has been added.
+	 * @param event
+	 * @param args
+	 */
+	public static void sendAddConfirmation(MessageCreateEvent event, String[] args) {
+		event.getChannel().sendMessage(
+				"\"" + args[0] + "\" triggers" 
+				+ "\"" + args[1] + "\""
+		);
+	}
+	
+	/**
+	 * Sends an error message depending on the boolean.
+	 * @param event
+	 * @param alreadyUsed
+	 */
+	public static void sendErrorAddMessage(MessageCreateEvent event, boolean alreadyUsed) {
+		if (alreadyUsed) {
+			event.getChannel().sendMessage(
+					"Sorry but I can't let"
+					+ "you add this response it may already be used"
+					+ " for reasons");
+			return;
+		}
+		event.getChannel().sendMessage(
+				"I could not understand\n" +
+				"Make sure your text reads the command then "
+				+ "\"input : output\""
+			);
 	}
 }

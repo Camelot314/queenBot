@@ -6,7 +6,7 @@ import org.javacord.api.event.message.MessageCreateEvent;
 /**
  * This is the Single method interface that is used for the 
  * lambda expressions in the queen and response files.
- * @author kjara
+ * @author Jaraad
  *
  */
 @FunctionalInterface

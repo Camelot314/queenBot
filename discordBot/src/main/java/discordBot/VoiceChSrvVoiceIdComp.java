@@ -5,10 +5,10 @@ import java.util.Comparator;
 /**
  * This is a comparator for the VoiceChannelServer that compares by 
  * The voiceChannelId.
- * @author kjara
+ * @author Jaraad
  *
  */
-public class VoiceChSrvVoiceIdComp implements Comparator<VoiceChannelServer>{
+public final class VoiceChSrvVoiceIdComp implements Comparator<VoiceChannelServer>{
 	
 	/**
 	 * Ordering given by this comparator compares by the voiceChannelId numbers.

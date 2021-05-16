@@ -1,7 +1,5 @@
 package discordBot;
 
-import java.util.Comparator;
-
 /**
  * This is a final class that basically
  * just houses the id for the server and voice channel
@@ -9,10 +7,8 @@ import java.util.Comparator;
  * @author Jaraad
  *
  */
-public final class VoiceChannelServer implements Comparable<VoiceChannelServer>{
+public final class VoiceChannelServer {
 	private long serverId, voiceChannelId;
-	public static final Comparator<VoiceChannelServer> VOICE_CHANNEL_ORDER 
-												= new VoiceChSrvVoiceIdComp();
 	
 	/**
 	 * Constructor
@@ -57,12 +53,11 @@ public final class VoiceChannelServer implements Comparable<VoiceChannelServer>{
 	}
 	
 	/**
-	 * Compares objects by the ServerId. There is a comparator that sorts by
-	 * voiceChannelId.
+	 * Hash code so it can be used in hashing.
 	 */
 	@Override
-	public int compareTo(VoiceChannelServer other) {
-		return Long.compare(serverId, other.serverId);
+	public int hashCode() {
+		return Long.hashCode(serverId);
 	}
 
 }

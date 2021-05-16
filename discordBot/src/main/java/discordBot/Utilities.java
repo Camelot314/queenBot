@@ -4,6 +4,7 @@ import java.awt.Color;
 
 import org.javacord.api.entity.message.MessageBuilder;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
+import org.javacord.api.entity.server.Server;
 import org.javacord.api.event.message.MessageCreateEvent;
 
 /**
@@ -82,7 +83,7 @@ public final class Utilities {
 	
 	/**
 	 * Method called when a response that relies on contains is found in the for 
-	 * loop
+	 * loop. It will send a message to the channel if the toSend parameter is non-null.
 	 * @param event
 	 * @param toSend
 	 * @param sent
@@ -172,5 +173,33 @@ public final class Utilities {
 				"Make sure your text reads the command then "
 				+ "\"input : output\""
 			);
+	}
+	
+	/**
+	 * Given an event it will return a server reference if the event was associated
+	 * with a server. It will return null otherwise.
+	 * @param event
+	 * @return reference to a server.
+	 */
+	public static Server getServer(MessageCreateEvent event) {
+		return event.getServer().orElse(null);
+	}
+	
+	/**
+	 * Checks to see if the input matches the command and if so then sends
+	 * the message.
+	 * @param event
+	 * @return a null string reference.
+	 */
+	public static String customsExec(MessageCreateEvent event) {
+		if (event.getMessageContent().toLowerCase().equals("!customs")) {
+			Server server = getServer(event);
+			if (server != null) {
+				Utilities.sendCustomsListMessage(event);
+				return null;
+			}
+			event.getChannel().sendMessage("No customs outside of servers");
+		}
+		return null;
 	}
 }

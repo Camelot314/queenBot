@@ -9,7 +9,7 @@ import org.javacord.api.event.message.MessageCreateEvent;
  * @author Jaraad
  *
  */
-public interface Response extends Comparable<Response> {
+public interface Response {
 	
 	/**
 	 * Overloaded exec method that will return the response (and if the object
@@ -31,16 +31,14 @@ public interface Response extends Comparable<Response> {
 	
 	/**
 	 * Returns the default response.
-	 * @return returns the default response string.
+	 * @return  the default response string.
 	 */
 	public String getDefaultResponse();
 	
 	/**
-	 * compareTo method needed by the Comparable interface. It will compare by
-	 * the command.
+	 * Returns true if the response relies on a contains method for identification
+	 * @return true if relies on contains method. 
 	 */
-	public default int compareTo(Response other) {
-		return getCommand().compareTo(other.getCommand());
-	}
+	public boolean isContains();
 	
 }

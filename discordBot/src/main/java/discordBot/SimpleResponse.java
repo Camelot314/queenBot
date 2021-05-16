@@ -15,7 +15,7 @@ public final class SimpleResponse implements Serializable, Response {
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = -4192087201373479648L;
+	private static final long serialVersionUID = -4192087201373479650L;
 	private String command, response;
 	
 	/**
@@ -26,16 +26,6 @@ public final class SimpleResponse implements Serializable, Response {
 	public SimpleResponse(String command, String response) {
 		this.command = command;
 		this.response = response;
-	}
-	
-	/**
-	 * Constructor that is used for the Collections binary search method.
-	 * The object is initialized with nothing other than the command. Do not
-	 * use the object initialized with this constructor for anything else.
-	 * @param command
-	 */
-	public SimpleResponse(String command) {
-		this.command = command;
 	}
 
 	/**
@@ -64,6 +54,14 @@ public final class SimpleResponse implements Serializable, Response {
 	}
 	
 	/**
+	 * Returns false all the time.
+	 */
+	@Override
+	public boolean isContains() {
+		return false;
+	}
+	
+	/**
 	 * Equals method. It compares by the command.
 	 */
 	@Override
@@ -73,8 +71,15 @@ public final class SimpleResponse implements Serializable, Response {
 		if (!(obj instanceof Response)) 
 			return false;
 		
-		Response other = (Response) obj;
-		return command.equals(other.getCommand());
+		return command.equals(((SimpleResponse) obj).getCommand());
+	}
+	
+	/**
+	 * HashCode relies on command string.
+	 */
+	@Override
+	public int hashCode() {
+		return command.hashCode();
 	}
 	
 	/**

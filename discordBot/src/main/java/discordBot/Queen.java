@@ -1,13 +1,15 @@
 package discordBot;
 
 import java.awt.Color;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 
 import org.javacord.api.DiscordApi;
@@ -35,28 +37,125 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public class Queen {
-	private static final String USERNAME_OF_AUTH_TERMINATOR = /* discord User id of authorized terminator */ "";
+	private static final String CREATOR = /* discord User id of authorized terminator */ "";
 	private static final String TOKEN = /* Bot Token that discord gives you */ "";
-	private static final String SAVED_DATA_FILE = "savedCustoms/savedData";
+	private static final String SAVED_DATA_FILE = /* directory where you want data saved */ "";
 	private static final String HELP_COMMAND = "!help";
 	private static final Random RANDOM = new Random();
+	private static int instances = 0;
+	private static Queen instance = null;
+	
+	private boolean hasActiveVoiceChannels, isRunning;
 	private String help;
 	private DiscordApi api;
-	private boolean hasActiveVoiceChannels, isRunning;
-	private ArrayList<VoiceChannelServer> activeVoiceServers;
-	private ArrayList<Response> responses;
-	private ArrayList<Response> responseRelyContains;
-	private ArrayList<ServerCustomCommands> customs;
+	private HashMap<Long, ServerCustomCommands> customsMap;
+	private HashMap<String, Response> responseMap;
+	private HashMap<Long, VoiceChannelServer> activeVoiceMap;
+	private HashSet<Response> responseContainsSet;
 
-	
-	public Queen() {     
+	/**
+	 * private constructor to make sure there is only one instance of this class
+	 */
+	private Queen() {     
         
 		help = "Hello I am QueenBot\n"
 	              + "I have a list of commands or phrases u may want to use:\n"
 	              + "!help" + Utilities.addSpaces("!help") + ": brings up my commandments";
+        customsMap = new HashMap<>();
+        activeVoiceMap = new HashMap<>();
+        responseMap = new HashMap<>();
+        responseContainsSet = new HashSet<>();
+        
 		
 		
-        // commands list
+        setUpResponses();
+	}
+
+	
+	
+	public static Queen getInstance() {
+		if (instances == 0) {
+			instance = new Queen();
+			instances = 1;
+		}
+		return instance;
+	}
+
+	
+	/**
+	 * The toString method.
+	 */
+	@Override
+	public String toString() {
+		return help;
+	}
+	
+	/**
+	 * Returns true if the response input is equal (compared by command) to one 
+	 * of the default commands in the responses string.
+	 * @param commandStr
+	 * @return true if the command string is in the responses map.
+	 */
+	public boolean hasResponse(String commandStr) {
+		return responseMap.containsKey(commandStr);
+	}
+	
+	
+	/**
+	 * This is the add response method. It will take in all the arguments needed
+	 * by the response constructor. Additionally it takes in a boolean adminOnly. 
+	 * This specifies whether or not the command will be seen when the !help is
+	 * called. This also takes in a lambda expression which is the code that
+	 *  will be run when the response is called. 
+	 * @param commandStr
+	 * @param responseStr
+	 * @param response2
+	 * @param displayMes
+	 * @param contains
+	 * @param odd
+	 * @param adminOnly
+	 * @param lambda
+	 * @throws IllegalArgumentException if command is null or both responses and
+	 * lambda are null.
+	 */
+		
+	public void addResponse(String commandStr, String responseStr, 
+				String displayMes, boolean contains, boolean adminOnly, 
+				Executable lambda) {
+		
+		if (commandStr == null) {
+			throw new IllegalArgumentException("You must have an agrument for command");
+		}
+		
+		if (responseStr == null && lambda == null) {
+			throw new IllegalArgumentException(
+					"If you have no responses then the executable must not be null"
+			);
+		}
+		
+		Response response = new DefaultResponse(commandStr, responseStr, contains, lambda);
+
+		if (!adminOnly && !commandStr.equals(HELP_COMMAND)) {
+			String helpMessage = DefaultResponse.getHelpStr();
+			helpMessage = helpMessage == null ? "" : helpMessage;
+			
+			helpMessage += "\n" + commandStr +
+					Utilities.addSpaces(commandStr) + ": " + displayMes;
+			help = helpMessage;
+			DefaultResponse.setHelpStr(helpMessage);
+		}
+		
+		addRespToSet(response);
+	}
+	
+	
+	/*--------------------Methods Used to Set Up Instance---------------------*/
+
+	/**
+	 * sets up everything in the Queen object.
+	 */
+	private void setUpResponses() {
+		// commands list
         String[] commands =  {
         		 "!help", ".", "sorry",
                  "i'm sorry", "what", "how u",
@@ -89,8 +188,6 @@ public class Queen {
         		null, "Learn to type lol", null,
         		null, null
         };
-        
-        
         
         responsesStr[0] = help;
         
@@ -125,14 +222,6 @@ public class Queen {
                 0, 7, 0,
                 0, 0
         };
-        
-        
-        
-        // creates the arrayLists.
-        responses = new ArrayList<>();
-        activeVoiceServers = new ArrayList<>();
-        responseRelyContains = new ArrayList<>();
-        customs = new ArrayList<>();
         
         /*
          * Loops through all the arrays above and
@@ -169,34 +258,15 @@ public class Queen {
         			displayMess, contains[i], admin, null);
         }
         addResponse(HELP_COMMAND, help, help, false, false, null);
-        addTerminatorCommand();
-        
-        /*
-         * Adding a custom response that executes a bit of code (that makes
-         * a voice channel server when allowed and specified).
-         */
-        addResponse("fight me", null, "*Special*", false, false, 
-        		(api, event) -> {
-        			
-        	String input = event.getMessageContent().toLowerCase();
-        	if (input.equals("fight me")) {
-        		Server server = getServer(event);
-    			if (server != null) {
-    				if (server.canYouCreateChannels()) {
-    					event.getChannel().sendMessage("Join the rig then");
-        				addVoice(api, server.getId(), event.getChannel().getId());
-        				return null;
-    				}
-    				event.getChannel().sendMessage("I am not allowed to");
-    			}
-        	}
-			
-        	return null;
-        });
-        
+        addTerminatorCommand();       
         addCustomCommands();
         addCustomHelperCommands();
 		loadCustoms();
+		
+		/**
+		 * Adding a response that allows the creator to have the server save
+		 * the current set of customs.
+		 */
 		addResponse("save", "saving", null, true, true, (api, event) -> {
 			String message = event.getMessageContent();
 			boolean performed = message.contains("" + api.getYourself().getId());
@@ -210,181 +280,46 @@ public class Queen {
 			
 			return performed ? "saved" : null;
 		});
-	}
-
-	
-	/**
-	 * The toString method.
-	 */
-	@Override
-	public String toString() {
-		return help;
-	}
-	
-	/**
-	 * Returns true if the response input is equal (compared by command) to one 
-	 * of the default commands in the responses string.
-	 * @param toCheck
-	 * @return true if the response is in the responses.
-	 */
-	public boolean hasResponse(Response toCheck) {
-		int index = Collections.binarySearch(responses, toCheck);
-		if (index > -1) {
-			return true;
-		}
-		return false;
-	}
-	
-	
-	/**
-	 * This is the add response method. It will take in all the arguments needed
-	 * by the response constructor. Additionally it takes in a boolean adminOnly. 
-	 * This specifies whether or not the command will be seen when the !help is
-	 * called. This also takes in a lambda expression which is the code that
-	 *  will be run when the response is called. 
-	 * @param command
-	 * @param response
-	 * @param response2
-	 * @param displayMes
-	 * @param contains
-	 * @param odd
-	 * @param adminOnly
-	 * @param lambda
-	 * @throws IllegalArgumentException if command is null or both responses and
-	 * lambda are null.
-	 */
 		
-	public void addResponse(String command, String response, 
-				String displayMes, boolean contains, boolean adminOnly, 
-				Executable lambda) {
-		
-		if (command == null) {
-			throw new IllegalArgumentException("You must have an agrument for command");
-		}
-		
-		if (response == null && lambda == null) {
-			throw new IllegalArgumentException(
-					"If you have no responses then the executable must not be null"
-			);
-		}
-		
-		Response temp = new DefaultResponse(command, response, contains, lambda);
-
-		if (!adminOnly && !command.equals(HELP_COMMAND)) {
-			String helpMessage = DefaultResponse.getHelpStr();
-			helpMessage = helpMessage == null ? "" : helpMessage;
+		 /*
+         * Adding a custom response that executes a bit of code (that makes
+         * a voice channel server when allowed and specified).
+         */
+        addResponse("fight me", null, "*Special*", false, false, 
+        		(api, event) -> {
+        			
+        	String input = event.getMessageContent().toLowerCase();
+        	if (input.equals("fight me")) {
+        		Server server = Utilities.getServer(event);
+    			if (server != null) {
+    				if (server.canYouCreateChannels()) {
+    					event.getChannel().sendMessage("Join the ring then");
+        				addVoice(api, server.getId(), event.getChannel().getId());
+        				return null;
+    				}
+    				event.getChannel().sendMessage("I am not allowed to");
+    			}
+        	}
 			
-			helpMessage += "\n" + command +
-					Utilities.addSpaces(command) + ": " + displayMes;
-			help = helpMessage;
-			DefaultResponse.setHelpStr(helpMessage);
-		}
-		responses.add(temp);
-		if (contains) {
-			responseRelyContains.add(temp);
-		}
+        	return null;
+        });
 	}
 	
 	/**
-	 * Runs the api if there is not already 1 instance running.
-	 */
-	public void run () {
-		if (!isRunning && TOKEN != null) {
-			isRunning = true;
-			Collections.sort(responses);
-			
-			api = new DiscordApiBuilder().setToken(TOKEN).login().join();
-			api.addMessageCreateListener(event -> {
-        		ServerCustomCommands custom = findCustom(event);
-	        	boolean hasCustoms = custom != null;
-	        	
-	        	long messageSender = event.getMessageAuthor().getId();
-	        	boolean senderIsYou = messageSender == api.getYourself().getId();
-	        	
-	        	if (!senderIsYou) {
-	        		findMessage(event, custom, hasCustoms);
-	        	}
-	        	
-	        	
-	        	
-	        });
-		}
-	}
-
-	/**
-	 * Finds and sends the appropriate message.
-	 * @param event
-	 * @param custom
-	 * @param hasCustoms
-	 * @param sent
-	 */
-	private void findMessage(MessageCreateEvent event, ServerCustomCommands custom, 
-			boolean hasCustoms) {
-		
-		String toSend;
-		String helpAddition;
-		String input;
-		DefaultResponse toFind;
-		Response response;
-		boolean sent = false;
-		
-		helpAddition = custom == null ? null : "\n" + custom.getCustomHelpAddition();
-		input = event.getMessageContent().toLowerCase();
-		toFind = new DefaultResponse(input);
-		
-		int index = Collections.binarySearch(responses, toFind);
-		response = index > -1 ? responses.get(index) : null;
-		
-		if (response != null) {
-			hasResponse(event, helpAddition, response);
-			sent = true;
-		} 
-		// where the binary search didn't work but there still
-		// may be a chance that it is in rely contains.
-
-		
-		if (!sent) {
-			for (Response responseCont : responseRelyContains) {
-				toSend = responseCont.exec(api, event, helpAddition);
-				sent = Utilities.foundResponseCont(event, toSend);
-			}
-			if (!sent && hasCustoms) {
-				// was not in responses or rely contains, but is a custom
-				toSend = custom.returnCustomResponse(api, event);
-				Utilities.sendMessage(event, toSend);
-			}
-		}
-		
-	}
-
-	/**
-	 * If the binary search for responses provides a valid value then it will 
-	 * perform this method.
-	 * @param event
-	 * @param helpAddition
+	 * Will add the specified response to the necessary set or map depending
+	 * on the response. This is thread safe.
 	 * @param response
 	 */
-	private void hasResponse(MessageCreateEvent event, String helpAddition, Response response) {
-		String toSend;
-		toSend = response.exec(api, event, helpAddition);
-		if (toSend != null && toSend.equals(help + helpAddition)) {
-			sendHelpMessage(event, helpAddition);
-			return;
+	private void addRespToSet(Response response) {
+		if (response.isContains()) {
+			synchronized(responseContainsSet) {
+				responseContainsSet.add(response);
+			}
 		}
-		Utilities.sendMessage(event, toSend);
+		synchronized(responseMap) {
+			responseMap.put(response.getCommand(), response);
+		}
 	}
-
-	/**
-	 * Creates the embedded help message.
-	 * @param event
-	 * @param helpAddition
-	 */
-	private void sendHelpMessage(MessageCreateEvent event, String helpAddition) {
-		new MessageBuilder().setEmbed(new EmbedBuilder().setTitle("Commandments")
-				.setColor(Color.yellow).setDescription(help + helpAddition))
-				.send(event.getChannel());
-	}
-	
 	
 	/**
 	 * Adding the terminator sequence. When the code in the terminator is run It
@@ -402,7 +337,9 @@ public class Queen {
 	}
 
 	/**
-	 * Code that is run when the terminator command is called.
+	 * Code that is run when the terminator command is called. Contains a lot of
+	 * write operations. Clearing the activeVoce hashSet and the the customs 
+	 * HashMap. Should be thread safe. 
 	 * @param api
 	 * @param event
 	 * @return a null String reference. 
@@ -411,6 +348,7 @@ public class Queen {
 		String input = event.getMessageContent().toLowerCase();
 		boolean terminateMessage = false;
 		boolean willListen = false;
+		
 		if (input.contains("" + api.getYourself().getId())) {
 			terminateMessage = input.contains("!") && input.contains("terminate");
 		}
@@ -422,7 +360,7 @@ public class Queen {
 				event.getChannel().sendMessage("Deleting Voice Channels");
 				deleteAllVoiceChannels();
 			}
-			if (customs.size() > 0) {
+			if (customsMap.size() > 0) {
 				event.getChannel().sendMessage("Saving customs");
 				saveCustoms();
 			}
@@ -437,73 +375,14 @@ public class Queen {
 	}
 	
 	/**
-	 * Saved the customs to a file.
-	 */
-	private void saveCustoms() {
-		
-		try {
-			FileOutputStream fileOutput = new FileOutputStream(SAVED_DATA_FILE);
-			ObjectOutputStream objectOut = new ObjectOutputStream(fileOutput);
-			objectOut.writeObject(customs);
-			objectOut.flush();
-			objectOut.close();
-			fileOutput.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		
-	}
-	
-	/**
-	 * Reads the customs file if there is one and then adds customs to the queen
-	 * object accordingly.
-	 */
-	@SuppressWarnings("unchecked")
-	private void loadCustoms() {
-		
-		try {
-			FileInputStream fileIn = new FileInputStream(SAVED_DATA_FILE);
-			ObjectInputStream objectIn = new ObjectInputStream(fileIn);
-			customs = (ArrayList<ServerCustomCommands>) objectIn.readObject();
-			objectIn.close();
-			fileIn.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		} catch (ClassCastException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	/**
 	 * The method that adds the customs commands trigger. This method is called
 	 * in the constructor. 
 	 */
 	private void addCustomCommands() {
 		addResponse("!customs", null, "check custom commands", false, false, 
 				(api, event) -> {
-					return customsExec(event);	
+					return Utilities.customsExec(event);	
 		});
-	}
-
-
-	/**
-	 * Checks to see if the input matches the command and if so then sends
-	 * the message.
-	 * @param event
-	 * @return a null string reference.
-	 */
-	private String customsExec(MessageCreateEvent event) {
-		if (event.getMessageContent().toLowerCase().equals("!customs")) {
-			Server server = getServer(event);
-			if (server != null) {
-				Utilities.sendCustomsListMessage(event);
-				return null;
-			}
-			event.getChannel().sendMessage("No customs outside of servers");
-		}
-		return null;
 	}
 	
 	/**
@@ -528,8 +407,7 @@ public class Queen {
 					
 			return customsRemoveExec(event);
 		});
-		responses.add(remove);
-		responseRelyContains.add(remove);
+		addRespToSet(remove);
 	}
 
 	/**
@@ -543,10 +421,8 @@ public class Queen {
 				&& input.charAt(0) == '!') {
 			
 			ServerCustomCommands custom = findCustom(event);
-			
 			if (custom != null) {
 				String[] args = Utilities.interpreter(event.getMessageContent(), 1, true);
-				
 				if (args == null) {
 					Utilities.sendErrorRemoveMessage(event);
 					return null;
@@ -555,13 +431,11 @@ public class Queen {
 				String confirmationMess = custom.remove(args[0]) ? 
 						"Removed the " + "\"" + args[0] + "\" trigger" 
 						: "Could not find command";
-				
 				event.getChannel().sendMessage(confirmationMess);
 				return null;
 			} 
 			event.getChannel().sendMessage("you have to enable customs first");
 		}
-		
 		return null;
 	}
 
@@ -572,7 +446,7 @@ public class Queen {
 	 * ServerCustomCommands object associated with the server.
 	 */
 	private void addCustomsAdd() {
-		Response add = new DefaultResponse("!customs-add", null, true, (api, event) -> {
+		Response customsAdd = new DefaultResponse("!customs-add", null, true, (api, event) -> {
 			String input = event.getMessageContent().toLowerCase();
 			if (input.contains("!customs-add") && input.charAt(0) == '!') {
 
@@ -585,7 +459,7 @@ public class Queen {
 						args[0] = args[0].toLowerCase();
 						boolean sendError = false;
 						
-						for (Response response : responseRelyContains) {
+						for (Response response : responseContainsSet) {
 							if (args[0].contains(response.getCommand())) {
 								sendError = true;
 							}
@@ -608,8 +482,7 @@ public class Queen {
 			}
 			return null;
 		});
-		responses.add(add);
-		responseRelyContains.add(add);
+		addRespToSet(customsAdd);
 	}
 
 	/**
@@ -621,12 +494,16 @@ public class Queen {
 	 * ServerCustomCommands object from the customs arrayList.
 	 */
 	private void addCustomsClear() {
-		responses.add(new DefaultResponse("!customs-off", null, false, (api, event) -> {
+		Response customsOff, customsClear;
+		customsOff = new DefaultResponse("!customs-off", null, false, (api, event) -> {
 			return customsClearExecutable(event);
-			}));
-		responses.add(new DefaultResponse("!customs-clear", null, false, (api, event) -> {
+		});
+		
+		customsClear = new DefaultResponse("!customs-clear", null, false, (api, event) -> {
 			return customsClearExecutable(event);
-		}));
+		});
+		addRespToSet(customsClear);
+		addRespToSet(customsOff);
 	}
 
 
@@ -638,23 +515,17 @@ public class Queen {
 	 */
 	private String customsClearExecutable(MessageCreateEvent event) {
 		String input = event.getMessageContent().toLowerCase();
-		Server server = getServer(event);
+		Server server = Utilities.getServer(event);
 		
 		if (input.equals("!customs-off") || input.equals("!customs-clear")) {
 			
-			ServerCustomCommands custom = findCustom(event);
-			if (custom != null) {
+			ServerCustomCommands customObj = findCustom(event);
+			if (customObj != null) {
+				long serverId = server.getId();
+				
 				if (event.getMessageAuthor().isServerAdmin()) {
-
-					int index = Collections.binarySearch(customs, custom);
-					if (index >= 0) {
-						customs.remove(index);
-						event.getChannel().sendMessage("Removed all customs");
-					} else {
-						event.getChannel().sendMessage("No customs to remove");
-					}
-					
-					
+					customsMap.remove(serverId);
+					event.getChannel().sendMessage("Removed all customs");
 				} else {
 					event.getChannel().sendMessage(
 							"You must be and admin to access customs duh"
@@ -662,8 +533,6 @@ public class Queen {
 				}
 			} else if (server != null) {
 				event.getChannel().sendMessage("No customs to remove");
-				
-				
 			} else {
 				event.getChannel().sendMessage("I can only remove customs on servers dummy");
 			}
@@ -674,26 +543,28 @@ public class Queen {
 	/**
 	 * This adds the customs on command. This command checks if the current chat is
 	 * in a server (will not add if on). Then it checks if the given server already
-	 * has a ServerCustomCommands object associated with it in the arrayList
+	 * has a ServerCustomCommands object associated with it in the HashMap of
 	 * customs. (Will not add 2 customs for 1 server.) Then it checks to see if the
-	 * message sender is the admin of the serer (will not allow anyone who is not
-	 * admin from turning on customs.) Finally if it meets all the above criteria it
-	 * creates a ServerCustomCommands object and puts in the server id.
+	 * message sender is the admin of the server (will not allow anyone who is not
+	 * admin from turning on customs). Finally if it meets all the above criteria it
+	 * creates a ServerCustomCommands object and puts in the server id. Thread Safe.
 	 */
 	private void addCustomsOn() {
-		responses.add(new DefaultResponse("!customs-on", null, false, (api, event) -> {
+		Response customsOn = new DefaultResponse("!customs-on", null, false, (api, event) -> {
 			String input = event.getMessageContent().toLowerCase();
-			Server server = getServer(event);
+			Server server = Utilities.getServer(event);
 			
 			if (input.equals("!customs-on")) {
-				
 				if (findCustom(event) != null) {
 					event.getChannel().sendMessage("Customs are already on");
 				} else if (server != null) {
 					long serverId = server.getId();
-					
 					if (event.getMessageAuthor().isServerAdmin()) {
-						customs.add(new ServerCustomCommands(serverId));
+						
+						synchronized(customsMap) {
+							customsMap.put(serverId, new ServerCustomCommands(serverId));
+						}
+						
 						event.getChannel().sendMessage("Enabled them customs");
 					} else {
 						event.getChannel().sendMessage(
@@ -705,34 +576,187 @@ public class Queen {
 				}
 			}
 			return null;
-		}));
+		});
+		addRespToSet(customsOn);
 	}
 	
+	
 	/**
-	 * Given an event it will return a server reference if there is one.
-	 * @param event
-	 * @return reference to a server.
+	 * Reads the customs file if there is one and then adds customs to the queen
+	 * object accordingly. This entire method is synchronized to be thread safe.
 	 */
-	private Server getServer(MessageCreateEvent event) {
-		return event.getServer().orElse(null);
+	@SuppressWarnings("unchecked")
+	private synchronized void loadCustoms() {
+		File file = new File(SAVED_DATA_FILE);
+		if (!file.exists()) {
+			return;
+		}
+		try {
+			FileInputStream fileIn = new FileInputStream(file);
+			ObjectInputStream objectIn = new ObjectInputStream(fileIn);
+			customsMap = (HashMap<Long, ServerCustomCommands>) objectIn.readObject();
+			objectIn.close();
+			fileIn.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		} catch (ClassCastException e) {
+			e.printStackTrace();
+		}
 	}
 	
+	
+	/*--------------------Methods Used when bot is running--------------------*/
+	
 	/**
-	 * Takes in an event and checks to see if there is a ServerCustom command 
+	 * Runs the api if there is not already 1 instance running.
+	 */
+	public void run () {
+		if (!isRunning && TOKEN != null) {
+			isRunning = true;			
+			api = new DiscordApiBuilder().setToken(TOKEN).login().join();
+			api.addMessageCreateListener(event -> {
+        		ServerCustomCommands custom = findCustom(event);
+	        	boolean hasCustoms = custom != null;
+	        	
+	        	long messageSender = event.getMessageAuthor().getId();
+	        	boolean senderIsYou = messageSender == api.getYourself().getId();
+	        	
+	        	if (!senderIsYou) {
+	        		findAndSend(event, custom, hasCustoms);
+	        	}
+	        	
+	        	
+	        	
+	        });
+		}
+	}
+
+	/**
+	 * Finds and sends the appropriate message based on the event and any possible
+	 * customs that are found in the run thread. Read only operations: Thread safe.
+	 * @param event
+	 * @param custom
+	 * @param hasCustoms
+	 * @param sent
+	 */
+	private void findAndSend(MessageCreateEvent event, ServerCustomCommands custom, 
+			boolean hasCustoms) {
+		
+		String toSend, helpAddition, input;
+		boolean sent = false;
+		
+		helpAddition = custom == null ? null : "\n" + custom.getCustomHelpAddition();
+		input = event.getMessageContent().toLowerCase();
+		
+		/*
+		 * The first thing that it does it check if the message is from a server
+		 * with customs. It will then see if the input corresponds to a server
+		 * custom. If it does then it will send that message and set sent to true.
+		 * This will prevent any further messages from sending. 
+		 */
+		
+		if (hasCustoms) {
+			toSend = custom.returnResponse(input);
+			if (toSend != null) {
+				Utilities.sendMessage(event, toSend);
+				sent = true;
+			}
+		}
+		
+		/*
+		 * If the Bot has not already sent a message (meaning either no customs
+		 * or it is a non custom message) it will retrieve the appropriate response
+		 * from the HashMap if it is present. 
+		 */
+		if (!sent && responseMap.containsKey(input)) {
+			sendResponse(event, helpAddition, responseMap.get(input));
+			sent = true;
+		}
+		
+		
+		
+		
+		/*
+		 * where the HashMap didn't have exact match but there still
+		 * may be a chance that it is in rely contains.
+		 */
+		if (!sent) {
+			for (Response responseCont : responseContainsSet) {
+				toSend = responseCont.exec(api, event, helpAddition);
+				sent = Utilities.foundResponseCont(event, toSend);
+			}
+		}
+		
+	}
+
+	/**
+	 * If the binary search for responses provides a valid value then it will 
+	 * perform this method. This method executes the lambda expression if there
+	 * is one and will send the appropriate messages. Read only operations: Thread safe.
+	 * @param event
+	 * @param helpAddition
+	 * @param response
+	 */
+	private void sendResponse(MessageCreateEvent event, String helpAddition, Response response) {
+		String toSend;
+		toSend = response.exec(api, event, helpAddition);
+		if (toSend != null && event.getMessageContent().equals("!help")) {
+			sendHelpMessage(event, helpAddition);
+			return;
+		}
+		Utilities.sendMessage(event, toSend);
+	}
+
+	/**
+	 * Creates and sends a fancy embedded help message. This is thread safe.
+	 * @param event
+	 * @param helpAddition
+	 */
+	private void sendHelpMessage(MessageCreateEvent event, String helpAddition) {
+		
+		helpAddition = helpAddition == null ? "" : helpAddition;
+		
+		new MessageBuilder().setEmbed(new EmbedBuilder().setTitle("Commandments")
+				.setColor(Color.yellow).setDescription(help + helpAddition))
+				.send(event.getChannel());
+	}
+	
+	
+	
+	
+	/**
+	 * Saved the customs to a file. This entire method is synchronized.
+	 */
+	private synchronized void saveCustoms() {
+		
+		try {
+			FileOutputStream fileOutput = new FileOutputStream(SAVED_DATA_FILE);
+			ObjectOutputStream objectOut = new ObjectOutputStream(fileOutput);
+			objectOut.writeObject(customsMap);
+			objectOut.flush();
+			objectOut.close();
+			fileOutput.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}	
+	
+	/**
+	 * Takes in an event and checks to see if there is a ServerCustomCommand object
 	 * associated with the server.
 	 * @param event
-	 * @return
+	 * @return ServerCustomCommand object if there is one associated. Null otherwise
 	 */
 	private ServerCustomCommands findCustom (MessageCreateEvent event) {
-		Server server = getServer(event);
-		int index = -1;
-		if (server != null) {
-			ServerCustomCommands key = new ServerCustomCommands(server.getId());
-			index = Collections.binarySearch(customs, key);
-			
-		}
-		if (index > - 1 ) {
-			return customs.get(index);
+		Server server = Utilities.getServer(event);
+		if (server != null) {			
+			long serverId = server.getId();
+			if (customsMap.containsKey(serverId)) {
+				return customsMap.get(serverId);
+			}
 		}
 		return null;
 		
@@ -750,87 +774,101 @@ public class Queen {
 	private void addVoice(DiscordApi api, long serverId, long textChannelID) {
 
 		Server server = api.getServerById(serverId).get();
+		
+		// only makes if it is in a server
 		if (server != null) {
-			// only makes if it is in a server
 			TextChannel originalChannel = server.getTextChannelById(textChannelID).get();
-			Collections.sort(activeVoiceServers);
-			VoiceChannelServer toFind = new VoiceChannelServer(server.getId(), -1);
-			int index = Collections.binarySearch(activeVoiceServers, toFind);
-			if (index < 0) {
-				// only adds if one has not been already added
-				
-		    	// Creating voice channel
-				ServerVoiceChannel channel = new ServerVoiceChannelBuilder(server)
-		    			.setName("The Ring")
-		    			.create()
-		    			.join();
-				
-				long voiceId = channel.getId();
-				hasActiveVoiceChannels = true;
-				VoiceChannelServer voiceServer = new VoiceChannelServer(server.getId(), voiceId);
-				activeVoiceServers.add(voiceServer);
-		    	
-		    	// Delete the channel if the last user leaves
-		    	channel.addServerVoiceChannelMemberLeaveListener(event -> {
-		    	    if (event.getChannel().getConnectedUserIds().isEmpty()) {
-		    	        
-		    	    	event.getChannel().delete();
-		    	        adjustActiveVoiceIds(voiceServer);
-		    	        
-						if (originalChannel != null) {
-							originalChannel.sendMessage("Good Fight");
-						}
-		    	    }
-		    	});
-
-		    	// Delete the channel if no user joined in the first 30 seconds 
-		    	api.getThreadPool().getScheduler().schedule(() -> {
-		    	    if (channel.getConnectedUserIds().isEmpty()) {
-		    	        
-		    	    	channel.delete();
-		    	    	adjustActiveVoiceIds(voiceServer);
-		    	        
-		    	        if (originalChannel != null) {
-		    	        	originalChannel.sendMessage("cowards");
-		    	        }
-		    	    }
-		    	}, 30, TimeUnit.SECONDS);
+			
+			// does nothing if there is already an active voice channel
+			if (activeVoiceMap.containsKey(serverId)) {
+				return;
 			}
 			
+			// Creating voice channel
+			ServerVoiceChannel channel = new ServerVoiceChannelBuilder(server)
+	    			.setName("The Ring")
+	    			.create()
+	    			.join();
+			
+			long voiceId = channel.getId();
+			synchronized(this) {
+				hasActiveVoiceChannels = true;
+			}
+			
+			VoiceChannelServer voiceServer = new VoiceChannelServer(server.getId(), voiceId);
+			
+			synchronized(activeVoiceMap) {
+				activeVoiceMap.put(serverId, voiceServer);
+				
+			}
+			
+			// Delete the channel if the last user leaves
+	    	channel.addServerVoiceChannelMemberLeaveListener(event -> {
+	    	    if (event.getChannel().getConnectedUserIds().isEmpty()) {
+	    	        
+	    	    	event.getChannel().delete();
+	    	        adjustActiveVoiceIds(voiceServer);
+	    	        
+					if (originalChannel != null) {
+						originalChannel.sendMessage("Good Fight");
+					}
+	    	    }
+	    	});
 
+	    	// Delete the channel if no user joined in the first 30 seconds 
+	    	api.getThreadPool().getScheduler().schedule(() -> {
+	    	    if (channel.getConnectedUserIds().isEmpty()) {
+	    	        
+	    	    	channel.delete();
+	    	    	adjustActiveVoiceIds(voiceServer);
+	    	        
+	    	        if (originalChannel != null) {
+	    	        	originalChannel.sendMessage("cowards");
+	    	        }
+	    	    }
+	    	}, 30, TimeUnit.SECONDS);    	
 		}		
     	
     }
 
 	/**
-	 * This does the removing to the voiceChannelServers arrayList.
+	 * This is called when a voice channel auto deletes. This method removes the
+	 * voiceChannelServer object from the activeVoceMap. This method is thread
+	 * safe.
 	 * @param voiceObj
 	 */
 	private void adjustActiveVoiceIds(VoiceChannelServer voiceObj) {
-		activeVoiceServers.remove(voiceObj);
-		if (activeVoiceServers.size() == 0) {
-			hasActiveVoiceChannels = false;
-		} else {
-			hasActiveVoiceChannels = true;
+		long serverId = voiceObj.getServerId();
+		synchronized(activeVoiceMap) {
+			activeVoiceMap.remove(serverId, voiceObj);
+		}
+		
+		synchronized(this) {
+			hasActiveVoiceChannels = activeVoiceMap.isEmpty();
 		}
 	}
 	
 	/**
 	 * This method is called when the terminate sequence is called
-	 * This will remove any of the open temporary channels. 
+	 * This will remove any of the open temporary channels. This entire method
+	 * is synchronized.
 	 */
-	private void deleteAllVoiceChannels() {
+	private synchronized void deleteAllVoiceChannels() {
 		if (hasActiveVoiceChannels) {
-			for (int i = 0; i < activeVoiceServers.size(); i ++) {
-				VoiceChannelServer current = activeVoiceServers.get(i);
+			for (Map.Entry<Long, VoiceChannelServer> entry : activeVoiceMap.entrySet()) {
+				VoiceChannelServer current = entry.getValue();
 				
 				serverMethod(current.getServerId(), (server) -> {
 					server.getVoiceChannelById(current.getVoiceChannelId()).ifPresent(channel -> {
-						channel.delete();
-					});	
+						synchronized(server) {
+							channel.delete();
+						}
+					});
 				});
 			}
 		}
+		hasActiveVoiceChannels = false;
+		activeVoiceMap.clear();
 	}
 	
 	/**

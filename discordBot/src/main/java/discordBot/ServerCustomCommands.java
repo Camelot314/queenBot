@@ -1,11 +1,7 @@
 package discordBot;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-
-import org.javacord.api.DiscordApi;
-import org.javacord.api.event.message.MessageCreateEvent;
+import java.util.HashMap;
 
 /**
  * This is an object associated with a server that keeps track of all the 
@@ -13,12 +9,12 @@ import org.javacord.api.event.message.MessageCreateEvent;
  * @author Jaraad
  *
  */
-public class ServerCustomCommands implements Comparable <ServerCustomCommands>, Serializable {
+public class ServerCustomCommands implements Serializable {
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = -2453323497723493301L;
-	private ArrayList<SimpleResponse> customResponses;
+	private static final long serialVersionUID = -2453323497723493303L;
+	private HashMap<String, SimpleResponse> responseMap;
 	private long serverId;
 	private String customHelpAddition;
 	
@@ -27,8 +23,8 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 	 * @param serverId
 	 * @param queen
 	 */
-	public ServerCustomCommands(long serverId) {
-		customResponses = new ArrayList<> ();
+	public ServerCustomCommands(long serverId) {		
+		responseMap = new HashMap<>();
 		customHelpAddition = "";
 		this.serverId = serverId;
 	}
@@ -36,7 +32,8 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 	/**
 	 * Will take in two strings and add a response to the list. It will return 
 	 * true if both input and output are not null and response is added. Will not add
-	 * any commands that are duplicates or default to queen.
+	 * any commands that are duplicates or default to queen. This method is thread
+	 * safe.
 	 * @param input
 	 * @param output
 	 * @return boolean true if added.
@@ -44,21 +41,18 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 	public boolean addResponse(String input, String output, Queen queen) {
 		if (input != null && output != null && queen != null) {
 			boolean noAdd = false;
-			SimpleResponse toAdd = new SimpleResponse(input, output);
-			noAdd = queen.hasResponse(toAdd);
-			
+			noAdd = queen.hasResponse(input) || responseMap.containsKey(input);
 			if (!noAdd) {
-				int index = Collections.binarySearch(customResponses, toAdd);
-				noAdd = index > -1;
-			}
-			if (!noAdd) {
-				customResponses.add(toAdd);
-				if (customHelpAddition.isEmpty()) {
-					customHelpAddition += "\nCustoms";
+				SimpleResponse toAdd = new SimpleResponse(input, output);
+				synchronized(this) {
+					responseMap.put(input, toAdd);
 					
+					if (customHelpAddition.isEmpty()) {
+						customHelpAddition += "\nCustoms";
+					}
+					customHelpAddition += "\n" + input + 
+							Utilities.addSpaces(input) + ": " + output;
 				}
-				customHelpAddition += "\n" + input + 
-						Utilities.addSpaces(input) + ": " + output;
 				return true;
 			}
 		}
@@ -87,28 +81,32 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 	 * @return
 	 */
 	public int getNumberCustoms() {
-		return customResponses.size();
+		return responseMap.size();
 	}
 	
 	/**
 	 * This is the remove command. It will remove a response corresponding to the
 	 * given input command. It will also edit the help message string. 
-	 * This will return true if the command was found and removed. 
+	 * This will return true if the command was found and removed. Method is 
+	 * thread safe.
 	 * @param command
 	 * @return boolean true if successful.
 	 */
-	public boolean remove(String command) {
-		SimpleResponse toFind = new SimpleResponse (command);
+	public boolean remove(String command) {		
 		
-		int index = Collections.binarySearch(customResponses, toFind);
 		
-		if (index > -1) {
-			customResponses.remove(index);
+		if (responseMap.containsKey(command)) {
+			synchronized (responseMap) {
+				responseMap.remove(command);
+			}
 			String tempHelpAddition = customHelpAddition;
 			int commandStart = tempHelpAddition.indexOf(command);
+			
+			
 			if (commandStart > 1) {
 				// because of the new line character
 				tempHelpAddition = customHelpAddition.substring(0, commandStart - 1);
+				
 				// starts at character after \n
 				String lineToRemove = customHelpAddition.substring(commandStart);
 				int nextNewLine = lineToRemove.indexOf('\n');
@@ -121,7 +119,9 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 				}
 				
 				tempHelpAddition += remaining;
-				customHelpAddition = tempHelpAddition;
+				synchronized(this) {
+					customHelpAddition = tempHelpAddition;
+				}
 				
 			}
 			return true;
@@ -136,16 +136,13 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 	 * @param event
 	 * @return String response if it finds one to return
 	 */
-	public String returnCustomResponse(DiscordApi api, MessageCreateEvent event) {
-		String toSend = null;
-		String command = event.getMessageContent().toLowerCase();
-		Collections.sort(customResponses);
-		Response toFind = new SimpleResponse(command);
-		int index = Collections.binarySearch(customResponses, toFind);
-		if (index > -1) {
-			return customResponses.get(index).exec(api, event, null);
+	public String returnResponse(String command) {
+		
+		command = command.toLowerCase();
+		if (responseMap.containsKey(command)) {
+			return responseMap.get(command).getDefaultResponse();
 		}
-		return toSend;
+		return null;
 	}
 	
 	/**
@@ -162,17 +159,16 @@ public class ServerCustomCommands implements Comparable <ServerCustomCommands>, 
 		return other.serverId == serverId;
 	}
 	
-	/**
-	 * Method needed to implement comparable. Objects are compared by their 
-	 * serverIds.
-	 */
 	@Override
-	public int compareTo(ServerCustomCommands other) {
-		return Long.compare(serverId, other.serverId);
+	public int hashCode() {
+		// TODO Auto-generated method stub
+		return Long.hashCode(serverId);
 	}
 	
 	@Override
 	public String toString() {
 		return "" + serverId + getCustomHelpAddition().substring(8);
 	}
+
+
 }

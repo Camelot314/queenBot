@@ -45,42 +45,6 @@ public class DefaultResponse implements Response {
 	}
 	
 	/**
-	 * Another constructor
-	 * @param command
-	 * @param response
-	 * @param contains
-	 */
-	public DefaultResponse (String command, String response,
-			boolean contains) {
-		this (command, response, contains, null);
-	}
-	
-	/**
-	 * Constructor
-	 * @param command
-	 * @param response
-	 * @param response2
-	 * @param contains
-	 * @param odd
-	 */
-	public DefaultResponse (String command, String response, String response2,
-			boolean contains, int odd) {
-		this (command, response, contains, null);
-
-	}
-	
-	
-	/**
-	 * This is a constructor that will be used to binary search. The object
-	 * initialized by this constructor should not be used by any other method
-	 * than the searching in the queen class.
-	 * @param command
-	 */
-	public DefaultResponse (String command) {
-		this(command, null, false);
-	}
-	
-	/**
 	 * Sets the help message.
 	 * @param help
 	 * @return boolean true if changed false otherwise
@@ -105,7 +69,8 @@ public class DefaultResponse implements Response {
 	 * Getter for the contains.
 	 * @return boolean true if it uses the contains
 	 */
-	public boolean getContains() {
+	@Override
+	public boolean isContains() {
 		return contains;
 	}
 	
@@ -164,6 +129,14 @@ public class DefaultResponse implements Response {
 		
 		Response other = (Response) obj;
 		return other.getCommand().equals(command);
+	}
+	
+	/**
+	 * HashCode used for hashing. Relies on command string.
+	 */
+	@Override
+	public int hashCode() {
+		return command.hashCode();
 	}
 	
 	

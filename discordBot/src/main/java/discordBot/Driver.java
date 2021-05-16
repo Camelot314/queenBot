@@ -11,7 +11,7 @@ package discordBot;
  */
 public class Driver {
 	public static void main(String[] args) {
-		Queen queenBot = new Queen();
+		Queen queenBot = Queen.getInstance();
 				
 		queenBot.run();
 		

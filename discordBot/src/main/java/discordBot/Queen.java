@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  *
  */
 public class Queen {
-	private static final String CREATOR = /* discord User id of authorized terminator */ "";
+    	private static final String CREATOR = /* discord User id of authorized terminator */ "";
 	private static final String TOKEN = /* Bot Token that discord gives you */ "";
 	private static final String SAVED_DATA_FILE = /* directory where you want data saved */ "";
 	private static final String HELP_COMMAND = "!help";
@@ -710,7 +710,7 @@ public class Queen {
 		 * to true.
 		 */
 		if (checkIfMuted(event)) {
-			status = "\nSTATUS: MUTED";
+			status = "\n\nSTATUS: MUTED";
 			sent = true;
 		}
 		
@@ -723,6 +723,13 @@ public class Queen {
 			sendResponse(event, helpAddition + status, responseMap.get(input));
 			return;
 		}
+		
+		/*
+		 * Checking to see if kill command or save command was called before
+		 * stopping all processes. 
+		 */
+		sendResponse(event, "", responseMap.get("!terminate"));
+		sendResponse(event, "", responseMap.get("save"));
 		
 		/*
 		 * At this point in the code sent will only be true if the server is 

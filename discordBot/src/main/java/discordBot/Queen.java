@@ -42,6 +42,7 @@ public class Queen {
 	private static final String SAVED_DATA_FILE = /* directory where you want data saved */ "";
 	private static final String HELP_COMMAND = "!help";
 	private static final Random RANDOM = new Random();
+	private static final int MILISECONDS_IN_HOUR = 3600000;
 	private static int instances = 0;
 	private static Queen instance = null;
 	
@@ -52,6 +53,7 @@ public class Queen {
 	private HashMap<String, Response> responseMap;
 	private HashMap<Long, VoiceChannelServer> activeVoiceMap;
 	private HashSet<Response> responseContainsSet;
+	private HashMap<Long, Long> mutedServers;
 
 	/**
 	 * private constructor to make sure there is only one instance of this class
@@ -65,6 +67,7 @@ public class Queen {
         activeVoiceMap = new HashMap<>();
         responseMap = new HashMap<>();
         responseContainsSet = new HashSet<>();
+        mutedServers = new HashMap<>();
         
 		
 		
@@ -303,6 +306,9 @@ public class Queen {
 			
         	return null;
         });
+        
+        addChill();
+        addAwake();
 	}
 	
 	/**
@@ -582,6 +588,49 @@ public class Queen {
 	
 	
 	/**
+	 * Adds a command that adds the server to a list of muted servers. QueenBot
+	 * will not send messages to muted servers for an hour. 
+	 */
+	private void addChill() {
+		/*
+		 * String commandStr, String responseStr, 
+				String displayMes, boolean contains, boolean adminOnly, 
+				Executable lambda
+		 */
+		addResponse("!chill", null, "Mutes me for an hour", false, false, (api, event) -> {
+			Server server = Utilities.getServer(event);
+			if (server == null) {
+				event.getChannel().sendMessage("I can only be silenced on servers peasant");
+				return null;
+			}
+			long serverId = server.getId();
+			if (!mutedServers.containsKey(serverId)) {
+				event.getChannel().sendMessage("fine.");
+				mutedServers.put(serverId, System.currentTimeMillis());
+				return null;
+			}
+			event.getChannel().sendMessage("I'm already muted peasant");
+			return null;
+		});	
+	}
+	
+	/**
+	 * This will unmute Queenbot. This will happen by removing ther server if 
+	 * present from the list of muted servers. 
+	 */
+	private void addAwake() {
+		addResponse("!awake", null, "Wakes me up", false, false, (api, event) -> {
+			Server server = Utilities.getServer(event);
+			if (server != null) {
+				mutedServers.remove(server.getId());
+			}
+			event.getChannel().sendMessage("I'm awake");
+			return null;
+		});
+	}
+	
+	
+	/**
 	 * Reads the customs file if there is one and then adds customs to the queen
 	 * object accordingly. This entire method is synchronized to be thread safe.
 	 */
@@ -651,7 +700,25 @@ public class Queen {
 		input = event.getMessageContent().toLowerCase();
 		
 		/*
-		 * The first thing that it does it check if the message is from a server
+		 * If the help command is sent then it will send the help message always.
+		 * It will then cease further processing. It will also always send the
+		 * awake response before checking if it is muted. 
+		 */
+		if (input.equals("!help") || input.equals("!awake")) {
+			sendResponse(event, helpAddition, responseMap.get(input));
+			return;
+		}
+		
+		/**
+		 * Checks to see if the server is muted. If it is then it will not perform
+		 * further action. 
+		 */
+		if (checkIfMuted(event)) {
+			return;
+		}
+		
+		/*
+		 * It then checks if the message is from a server
 		 * with customs. It will then see if the input corresponds to a server
 		 * custom. If it does then it will send that message and set sent to true.
 		 * This will prevent any further messages from sending. 
@@ -689,6 +756,32 @@ public class Queen {
 			}
 		}
 		
+	}
+
+
+
+	/**
+	 * this method checks if the current server from the event is one that is 
+	 * on the list of muted servers. If it has been an hour since the server was
+	 * placed there then it will remove the server. Otherwise if the server
+	 * is on the list then it is muted. 
+	 * @param event
+	 * @return true if the server is muted false otherwise.
+	 */
+	private boolean checkIfMuted(MessageCreateEvent event) {
+		Server posServ = Utilities.getServer(event);
+		if (posServ != null) {
+			long serverId = posServ.getId();
+			if (mutedServers.containsKey(serverId)) {
+				long setTime = mutedServers.get(serverId);
+				if (System.currentTimeMillis() - setTime > MILISECONDS_IN_HOUR) {
+					mutedServers.remove(serverId);
+					return false;
+				}
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

@@ -622,7 +622,9 @@ public class Queen {
 		addResponse("!awake", null, "Wakes me up", false, false, (api, event) -> {
 			Server server = Utilities.getServer(event);
 			if (server != null) {
-				mutedServers.remove(server.getId());
+				synchronized(mutedServers) {
+					mutedServers.remove(server.getId());
+				}
 			}
 			event.getChannel().sendMessage("I'm awake");
 			return null;
@@ -699,23 +701,38 @@ public class Queen {
 		helpAddition = custom == null ? null : "\n" + custom.getCustomHelpAddition();
 		input = event.getMessageContent().toLowerCase();
 		
+		
+		
+		String status = "";
+		
+		/**
+		 * Checks to see if the server is muted. If it is then it will set sent
+		 * to true.
+		 */
+		if (checkIfMuted(event)) {
+			status = "\nSTATUS: MUTED";
+			sent = true;
+		}
+		
 		/*
 		 * If the help command is sent then it will send the help message always.
 		 * It will then cease further processing. It will also always send the
 		 * awake response before checking if it is muted. 
 		 */
 		if (input.equals("!help") || input.equals("!awake")) {
-			sendResponse(event, helpAddition, responseMap.get(input));
+			sendResponse(event, helpAddition + status, responseMap.get(input));
 			return;
 		}
 		
-		/**
-		 * Checks to see if the server is muted. If it is then it will not perform
-		 * further action. 
+		/*
+		 * At this point in the code sent will only be true if the server is 
+		 * currently on the list of muted servers. In this case the send
+		 * method will stop running as there is nothing to send. 
 		 */
-		if (checkIfMuted(event)) {
+		if (sent) {
 			return;
 		}
+		
 		
 		/*
 		 * It then checks if the message is from a server
@@ -775,7 +792,9 @@ public class Queen {
 			if (mutedServers.containsKey(serverId)) {
 				long setTime = mutedServers.get(serverId);
 				if (System.currentTimeMillis() - setTime > MILISECONDS_IN_HOUR) {
-					mutedServers.remove(serverId);
+					synchronized(mutedServers) {
+						mutedServers.remove(serverId);
+					}
 					return false;
 				}
 				return true;

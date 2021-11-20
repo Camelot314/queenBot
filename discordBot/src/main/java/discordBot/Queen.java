@@ -698,7 +698,7 @@ public class Queen {
 		String toSend, helpAddition, input;
 		boolean sent = false;
 		
-		helpAddition = custom == null ? null : "\n" + custom.getCustomHelpAddition();
+		helpAddition = custom == null ? "" : "\n" + custom.getCustomHelpAddition();
 		input = event.getMessageContent().toLowerCase();
 		
 		
